@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+import os
+import sys
+os.environ["LD_LIBRARY_PATH"] = ".."
+
+try:
+	import kf2
+except ImportError:
+	sys.path[0:0] = (".",)
+	import kf2
+
+import click
+
+@click.command(context_settings={"help_option_names":['-h','-H','-?','--help']})
+@click.option("-o","--load-map",type=click.Path("r"), help="load map file (EXR or KFB")
+@click.option("-c","--load-palette",type=click.Path("r"), help="load palette file")
+@click.option("-l","--load-location",type=click.Path("r"), help="load location file")
+@click.option("-s","--load-settings",type=click.Path("r"), help="load settings file")
+@click.option("-x","--save-exr",type=click.Path("w"), help="save EXR")
+@click.option("-t","--save-tif",type=click.Path("w"), help="save TIFF")
+@click.option("-p","--save-png",type=click.Path("w"), help="save PNG")
+@click.option("-j","--save-jpg",type=click.Path("w"), help="save JPEG")
+@click.option("-m","--save-map",type=click.Path("w"), help="save KFB")
+@click.option("--save-kfr",type=click.Path("w"), help="save KFR")
+@click.option("-z","--zoom-out",type=int,help="zoom sequence")
+@click.option("-l","--log",type=str,help="logging verbosity")
+@click.option("-v","-V","--version",is_flag=True,help="show version")
+def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,save_png,save_jpg,save_map,save_kfr,zoom_out,log,version):
+	if version:
+		print(kf2.__version__)
+		sys.exit(0)
+
+	batch = save_exr or save_tif or save_png or save_jpg or save_map or save_kfr
+
+	if not batch:
+		pass
+
+
+
+if __name__ == "__main__":
+	main()

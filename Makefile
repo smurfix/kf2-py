@@ -1,6 +1,6 @@
-ORIG_CPP = scale_bitmap.cpp fraktal_sft.cpp
-all: ext
+all: embed ext
 
+embed:
+	$(MAKE) -C .. embed
 ext:	
-	@./link.sh ../fraktal_sft/ kf- $(ORIG_CPP)
 	python3 setup.py build_ext --inplace

@@ -1,11 +1,12 @@
 from setuptools import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
+import sys
 
 ext = Extension(
-            "kf2", ["kf2.pyx",
-                "kf-fraktal_sft.cpp",
-                "kf-scale_bitmap.cpp",
+            "kf2",
+            [
+                "kf2.pyx",
             ],
             extra_compile_args=[
                 "-DKF_EMBED",
@@ -13,14 +14,22 @@ ext = Extension(
             ],
             language="c++",
             include_dirs=[
-                "./inc",
+                "../embed",
+                "../common",
                 "../fraktal_sft",
                 "../glad/include",
+                *sys.path,
                 "/usr/include/pixman-1",
                 "/usr/include/OpenEXR",
+                "/usr/include/OpenEXR",
             ],
-            libraries=[],
-            library_dirs=["../baru/"],
+            libraries=[
+                "kf2-embed",
+                'gmp', 'mpfr', 'mpc'
+            ],
+            library_dirs=[
+                "..",
+            ],
         )
 
 setup(
