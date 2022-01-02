@@ -1,5 +1,4 @@
-/*.c
-/*.so
 /build/
 /kf2/*.cpp
+/kf2/*.so
 __pycache__
