@@ -4,12 +4,13 @@ from distutils.extension import Extension
 import sys
 
 ext = Extension(
-            "kf2",
+            "kf2.core",
             [
-                "kf2.pyx",
+                "kf2/core.pyx",
             ],
             extra_compile_args=[
                 "-DKF_EMBED",
+                "-DKF_OPENCL",
                 "-DKF_SIMD=4",
             ],
             language="c++",

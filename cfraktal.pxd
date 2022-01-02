@@ -10,10 +10,11 @@ cdef extern from "<glm/glm.hpp>":
     struct dvec2 "glm::dvec2"
     struct dmat2 "glm::dmat2"
 
-cdef extern from "<stdint.h>" nogil:
+cdef extern from "<stdint.h>":
     ctypedef unsigned long uint64_t
     ctypedef unsigned short uint32_t
     ctypedef long int64_t
+    ctypedef short int32_t
     cdef enum BOOL:
         FALSE
         TRUE
@@ -42,6 +43,8 @@ cdef extern from "floatexp.h":
 cdef extern from "CDecNumber.h":
     cdef cppclass decNumber
     cdef cppclass CDecNumber:
+        decNumber m_dec
+
         CDecNumber()
         CDecNumber(const CDecNumber &a)
         CDecNumber(const decNumber &a)
@@ -55,6 +58,7 @@ cdef extern from "CDecNumber.h":
         CDecNumber operator*(const CDecNumber &a, const CDecNumber &b)
         CDecNumber operator/(const CDecNumber &a, const CDecNumber &b)
         CDecNumber operator^(const CDecNumber &a, int b)
+        CDecNumber operator=(const mpz_t &a)
 
         bool operator>(const CDecNumber &a, int b)
         bool operator<(const CDecNumber &a, int b)
@@ -146,21 +150,6 @@ cdef extern from "CFixedFloat.h":
         SeriesType_Complex = 1
         SeriesType_Real = 2
 
-cdef extern from "CDecNumber.h":
-    cdef cppclass CDecNumber:
-        decNumber m_dec
-
-        CDecNumber()
-        CDecNumber(CDecNumber &a)
-        CDecNumber(decNumber &a)
-        CDecNumber(char *a)
-        CDecNumber(string &a)
-        CDecNumber(double a)
-        CDecNumber(int a)
-        CDecNumber(floatexp a)
-        CDecNumber(floatexpf a)
-
-
 cdef extern from "CFixedFloat.h":
     struct TextureParams:
         bool m_bTexture
@@ -174,7 +163,7 @@ cdef extern from "CFixedFloat.h":
     cdef cppclass CFixedFloat:
         CFixedFloat()
         CFixedFloat(CFixedFloat &a)
-        CFixedFloat(mpz_t &a)
+        CFixedFloat(const mpz_t &a)
         CFixedFloat(FixedFloat &a)
         CFixedFloat(char *sz)
         CFixedFloat(string &sz)
@@ -353,23 +342,7 @@ cdef extern from "opengl.h":
         half *rgb16
         unsigned char *rgb8
 
-    struct request_u:
-        request_compile_t compile
-        request_configure_t configure
-        request_render_t render
-    struct request:
-        request_t tag
-        request_u u
 
-    struct response_u:
-        response_init_t init
-        response_compile_t compile
-
-    struct response:
-        response_t tag
-        response_u u
-
-        
 cdef extern from "reference.h":
     cdef struct Reference
     Reference *reference_new(int64_t, bool, Reference_Type)
@@ -404,25 +377,6 @@ cdef extern from "Settings.h":
     cdef cppclass Settings:
         Settings()
 
-
-cdef extern from "fifo.h":
-    cpdef enum request_t:
-        request_quit = 0
-        request_init = 1
-        request_deinit = 2
-        request_compile = 3
-        request_configure = 4
-        request_render = 5
-
-    cpdef enum response_t:
-        response_quit = 0
-        response_init = 1
-        response_deinit = 2
-        response_compile = 3
-        response_configure = 4
-        response_render = 5
-
-
 cdef extern from "fraktal_sft.h":
     struct TH_FIND_CENTER
 
@@ -432,7 +386,7 @@ cdef extern from "fraktal_sft.h":
 
         int m_opengl_major
         int m_opengl_minor
-        bool m_bRunning
+        bool renderRunning()
         bool m_bInhibitColouring
         bool m_bInteractive
         int nPos
@@ -444,12 +398,14 @@ cdef extern from "fraktal_sft.h":
         # void MandelCalcNANOMB2()
         void Done()
 
-        void SetPosition(CFixedFloat &re, CFixedFloat &im, CFixedFloat &radius, int nX, int nY)
         void SetPosition(CDecNumber &re, CDecNumber &im, CDecNumber &radius)
+        CFixedFloat m_CenterRe
+        CFixedFloat m_CenterIm
+        CFixedFloat m_ZoomRadius
+
         string ToZoom()
         void SetImageSize(int nx, int ny)
-        # void RenderFractal(int nX, int nY, int64_t nMaxIter, HWND hWnd, bool bNoThread = FALSE, bool  bResetOldGlitch = TRUE);
-        void RenderFractal()
+        void Render(bool noThread, bool resetOldGlitch)
         void CalcStart(int x0, int x1, int y0, int y1)
         # HBITMAP GetBitmap()
         # HBITMAP ShrinkBitmap(HBITMAP bmSrc,int nNewWidth,int nNewHeight,int mode = 1)
@@ -468,6 +424,7 @@ cdef extern from "fraktal_sft.h":
         void GetIterations(int64_t &nMin, int64_t &nMax, int *pnCalculated = NULL, int *pnType = NULL, bool bSkipMaxIter = FALSE)
         int64_t GetIterations()
         void SetIterations(int64_t nIterations)
+        void FixIterLimit()
         string GetRe()
         string GetRe(int nXPos, int nYPos, int width, int height)
         string GetIm()
@@ -480,6 +437,8 @@ cdef extern from "fraktal_sft.h":
         int GetNumOfColors()
         void ApplyColors(int x0, int x1, int y0, int y1)
         void ApplyColors()
+        void SetColor(int x, int y, int w, int h)
+
         void ApplyIterationColors()
         void ApplyPhaseColors()
         void ApplySmoothColors()
@@ -495,10 +454,10 @@ cdef extern from "fraktal_sft.h":
         bool OpenMapB(string &szFile, bool bReuseCenter, double nZoomSize)
         bool OpenMapEXR(string &szFile)
         string ToText()
-        # bool SaveFile(string &szFile, bool overwrite)
+        bool SaveFile(string &szFile, bool overwrite)
         double GetIterDiv()
         void SetIterDiv(double nIterDiv)
-        int SaveJpg(string &szFile, int nQuality, int nWidth = 0, int nHeight = 0)
+        int SaveJpg(string &szFile, int nQuality, int nWidth, int nHeight)
         int64_t GetMaxApproximation()
         int64_t GetIterationOnPoint(int x, int y)
         double GetTransOnPoint(int x, int y)

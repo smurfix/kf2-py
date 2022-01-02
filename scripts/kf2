@@ -20,22 +20,50 @@ import click
 @click.option("-t","--save-tif",type=click.Path("w"), help="save TIFF")
 @click.option("-p","--save-png",type=click.Path("w"), help="save PNG")
 @click.option("-j","--save-jpg",type=click.Path("w"), help="save JPEG")
+@click.option("-J","--jpg-quality",type=int,help="JPEG quality")
 @click.option("-m","--save-map",type=click.Path("w"), help="save KFB")
 @click.option("--save-kfr",type=click.Path("w"), help="save KFR")
 @click.option("-z","--zoom-out",type=int,help="zoom sequence")
 @click.option("-l","--log",type=str,help="logging verbosity")
 @click.option("-v","-V","--version",is_flag=True,help="show version")
-def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,save_png,save_jpg,save_map,save_kfr,zoom_out,log,version):
+def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,save_png,save_jpg,jpg_quality,save_map,save_kfr,zoom_out,log,version):
 	if version:
 		print(kf2.__version__)
 		sys.exit(0)
 
+	kf = kf2.Fractal()
+
 	batch = save_exr or save_tif or save_png or save_jpg or save_map or save_kfr
-
-	if not batch:
-		pass
-
-
+	if load_settings:
+		kf.openSettings(load_settings)
+	if load_location:
+		kf.openFile(load_location)
+	if load_map:
+		kf.openMapB(load_map)
+	if load_palette:
+		kf.inhibit_colouring = True
+		kf.openFile(load_palette)
+		kf.inhibit_colouring = False
+	only_kfr = bool(save_kfr) and not bool(save_exr or save_pg or save_map or save_png or save_tif)
+	if batch:
+		save_args = dict(save_exr=save_exr, save_tif=save_tif, save_jpg=save_jpg,
+				save_png=save_png, save_map=save_map, save_kfr=save_kfr,
+				quality=jpg_quality)
+		from kf2.batch import render_frame,save_frame
+		if load_map:
+			save_frame(0, only_kfr, **save_args)
+		else:
+			if zoom_out:
+				for frame in range(zoom_out):
+					render_frame(frame, only_kfr, **save_args)
+					if kf.zoom < .001:
+						break
+			else:
+				render_frame(0, only_kfr, **save_args)
+	else:
+		from kf2.ui import UI
+		ui=UI(kf)
+		ui.run()
 
 if __name__ == "__main__":
 	main()

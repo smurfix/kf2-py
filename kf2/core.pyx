@@ -1,8 +1,10 @@
 from cfraktal cimport CFraktalSFT, version
-from cfraktal cimport int64_t, uint64_t, bool, string, CFixedFloat, Reference_Type
-from gmpy2 cimport mpz, MPZ_Check, MPZ, mpz_t, import_gmpy2
+from cfraktal cimport int32_t, int64_t, uint64_t, bool, string, Reference_Type, CDecNumber
+from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2
 
 import_gmpy2()
+
+cdef int32_t UNEVALUATED = 0x80000000
 
 cdef class Fraktal:
     cdef CFraktalSFT* cfr  # Hold a C++ instance which we're wrapping
@@ -10,8 +12,9 @@ cdef class Fraktal:
     def __cinit__(self):
         self.cfr = new CFraktalSFT()
 
-    def renderFractal(self):
-        self.cfr.RenderFractal()
+    def render(self, threaded=True, resetOldGlitch=True):
+        """Render an image"""
+        self.cfr.Render(not threaded, resetOldGlitch)
 
     @property
     def opengl_major(self):
@@ -19,15 +22,24 @@ cdef class Fraktal:
     @property
     def opengl_minor(self):
         return self.cfr.m_opengl_minor
+
     @property
-    def running(self):
-        return self.cfr.m_bRunning
+    def render_running(self):
+        return self.cfr.renderRunning()
+
     @property
     def inhibit_colouring(self):
         return self.cfr.m_bInhibitColouring
+    @inhibit_colouring.setter
+    def inhibit_colouring(self, flag:bool):
+        self.cfr.m_bInhibitColouring = flag
+
     @property
     def interactive(self):
         return self.cfr.m_bInteractive
+    @interactive.setter
+    def interactive(self, flag:bool):
+        self.cfr.m_bInteractive = flag
 
     def mandelCalc(self, reftype: Reference_Type):
         self.cfr.MandelCalc(reftype)
@@ -41,13 +53,13 @@ cdef class Fraktal:
     def Done(self):
         self.cfr.Done()
 
-    cdef cf_SetPosition(self, mpz_t x,mpz_t y,mpz_t z, int nx,int ny):
-        cdef CFixedFloat cx
-        cdef CFixedFloat cy
-        cdef CFixedFloat cz
-        self.cfr.SetPosition(cx,cy,cz,nx,ny)
+    cdef cf_SetPosition(self, mpfr_t x,mpfr_t y,mpfr_t z):
+        cdef CDecNumber cx=x
+        cdef CDecNumber cy=y
+        cdef CDecNumber cz=z
+        self.cfr.SetPosition(cx,cy,cz)
 
-    def setPosition(self, x,y,z, nx=0,ny=0):
+    def setPosition(self, x,y,z):
         """
         Set the position to render.
         X,Y: coordinates of the image center.
@@ -58,27 +70,18 @@ cdef class Fraktal:
         If the latter, Z is the zoom factor. radius := 2/z.
         """
         if isinstance(x,str):
-            x = mpz(x)
-            y = mpz(y)
-            z = 2/mpz(z)
-        elif not MPZ_Check(x):
-            raise RuntimeError("Either MPZ or string arguments")
-        if nx == 0:
-            nx = self.nX
-        if ny == 0:
-            ny = self.nY
-        self.cf_SetPosition(MPZ(x), MPZ(y), MPZ(z), nx,ny)
+            x = mpfr(x)
+            y = mpfr(y)
+            z = 2/mpfr(z)
+        elif not MPFR_Check(x):
+            raise RuntimeError("Either MPFR or string arguments")
+        self.cf_SetPosition(MPFR(x), MPFR(y), MPFR(z))
 
     def toZoom(self):
         return self.cfr.ToZoom()
 
     def setImageSize(self, nx:int, ny:int):
         self.cfr.SetImageSize(nx,ny)
-
-    # # void RenderFractal(int nX, int nY, int64_t nMaxIter, HWND hWnd, bool bNoThread = FALSE, bool  bResetOldGlitch = TRUE);
-
-    def renderFractal(self):
-        self.cfr.RenderFractal()
 
     # void CalcStart(int x0, int x1, int y0, int y1)
     # HBITMAP GetBitmap()
@@ -106,9 +109,28 @@ cdef class Fraktal:
 
     # void GetTimers(double *total_wall, double *total_cpu = nullptr, double *reference_wall = nullptr, double *reference_cpu = nullptr, double *approximation_wall = nullptr, double *approximation_cpu = nullptr, double *perturbation_wall = nullptr, double *perturbation_cpu = nullptr)
     # string GetPosition()
+
     # void GetIterations(int64_t &nMin, int64_t &nMax, int *pnCalculated = NULL, int *pnType = NULL, bool bSkipMaxIter = FALSE)
+    @property
+    def iter_limits(self):
+        cdef int64_t n_min = 0
+        cdef int64_t n_max = 0
+        self.cfr.GetIterations(n_min,n_max)
+        return n_min,n_max
+
     # int64_t GetIterations()
     # void SetIterations(int64_t nIterations)
+    @property
+    def iterations(self):
+        return self.cfr.GetIterations()
+    @iterations.setter
+    def iterations(self, lim: int):
+        self.cfr.SetIterations(lim)
+
+    # void FixIterLimit()
+    def fixIterLimit(self):
+        self.cfr.FixIterLimit()
+
     # string GetRe()
     # string GetRe(int nXPos, int nYPos, int width, int height)
     # string GetIm()
@@ -119,8 +141,16 @@ cdef class Fraktal:
     # void AddWave(int nCol, int nPeriod = -1, int nStart = -1)
     # void ChangeNumOfColors(int nParts)
     # int GetNumOfColors()
-    # void ApplyColors(int x0, int x1, int y0, int y1)
-    # void ApplyColors()
+    def applyColors(self):
+        """ Calculate m_cPos, run OpenGL / CPU coloring"""
+        self.cfr.ApplyColors()
+    def setColor(self, x:int, y:int, w:int=1, h:int=1):
+        """ CPU coloring of a single pixel"""
+        self.cfr.SetColor(x,y,w,h)
+    def applyColorRange(self, x0:int, x1:int, y0:int, y1:int):
+        """ CPU coloring of a single range, one 16x16 square at a time"""
+        self.cfr.ApplyColors(x0,x1,y0,y1)
+
     # void ApplyIterationColors()
     # void ApplyPhaseColors()
     # void ApplySmoothColors()
@@ -155,7 +185,20 @@ cdef class Fraktal:
     # bool SaveFile(string &szFile, bool overwrite)
     # double GetIterDiv()
     # void SetIterDiv(double nIterDiv)
-    # int SaveJpg(string &szFile, int nQuality, int nWidth = 0, int nHeight = 0)
+    def saveJpeg(self, filename:str, quality:int, width:int = 0, height:int = 0):
+        self.cfr.SaveJpg(filename,quality,width,height)
+    def saveEXR(self, filename:str):
+        self.cfr.SaveJpg(filename,-3,0,0)
+    def saveTIFF(self, filename:str):
+        self.cfr.SaveJpg(filename,-2,0,0)
+    def savePNG(self, filename:str):
+        self.cfr.SaveJpg(filename,-1,0,0)
+
+    def saveKFR(self, filename:str):
+        self.cfr.SaveFile(filename, True)
+    def saveMap(self, filename:str):
+        self.cfr.SaveMapB(filename)
+
     # int64_t GetMaxApproximation()
     # int64_t GetIterationOnPoint(int x, int y)
     # double GetTransOnPoint(int x, int y)
