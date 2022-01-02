@@ -26,7 +26,7 @@ ext = Extension(
             ],
             libraries=[
                 "kf2-embed",
-                'gmp', 'mpfr', 'mpc'
+                'mpfr',
             ],
             library_dirs=[
                 "..",

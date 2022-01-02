@@ -1,7 +1,7 @@
 from libcpp.string cimport string
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from gmpy2 cimport mpz_t
+from gmpy2 cimport mpfr_t
 
 cdef extern from "<glad/glad.h>":
     struct GLint
@@ -58,7 +58,7 @@ cdef extern from "CDecNumber.h":
         CDecNumber operator*(const CDecNumber &a, const CDecNumber &b)
         CDecNumber operator/(const CDecNumber &a, const CDecNumber &b)
         CDecNumber operator^(const CDecNumber &a, int b)
-        CDecNumber operator=(const mpz_t &a)
+        CDecNumber operator=(const mpfr_t &a)
 
         bool operator>(const CDecNumber &a, int b)
         bool operator<(const CDecNumber &a, int b)
@@ -163,7 +163,7 @@ cdef extern from "CFixedFloat.h":
     cdef cppclass CFixedFloat:
         CFixedFloat()
         CFixedFloat(CFixedFloat &a)
-        CFixedFloat(const mpz_t &a)
+        CFixedFloat(const mpfr_t &a)
         CFixedFloat(FixedFloat &a)
         CFixedFloat(char *sz)
         CFixedFloat(string &sz)
