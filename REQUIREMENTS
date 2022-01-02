@@ -1,2 +1,7 @@
 python3-gmpy2
 python3-cython
+
+libmpc-dev
+libglm-dev
+libglfw3-dev
+# libclew-dev https://github.com/smurfix/clew
