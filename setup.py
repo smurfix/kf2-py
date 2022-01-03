@@ -13,6 +13,8 @@ ext = Extension(
                 "-DKF_OPENCL",
                 "-DKF_SIMD=4",
                 "-DNPY_NO_DEPRECATED_API",
+                "-g",
+                "-Og",
             ],
             language="c++",
             include_dirs=[
