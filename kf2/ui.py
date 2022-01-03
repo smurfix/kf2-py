@@ -60,7 +60,7 @@ class UI:
 
         self.kf.render(True)
         if self.render_update is None:
-            self.render_update = glib.timeout_add(60*1000, self.render_idle)
+            self.render_update = glib.timeout_add(100, self.render_idle)
 
     def stop_render(self):
         self.kf.stop()
