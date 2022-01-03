@@ -1,4 +1,5 @@
 /build/
 /kf2/*.cpp
 /kf2/*.so
+/kf2/*.glade~
 __pycache__
