@@ -410,8 +410,8 @@ cdef extern from "fraktal_sft.h":
         # HBITMAP GetBitmap()
         # HBITMAP ShrinkBitmap(HBITMAP bmSrc,int nNewWidth,int nNewHeight,int mode = 1)
         void UpdateBitmap()
-        int GetWidth()
-        int GetHeight()
+        int GetImageWidth() # m_nX
+        int GetImageHeight() # m_nY
         void Stop()
         int CountFrames(int nProcent)
         void Zoom(double nZoomSize)
@@ -583,9 +583,6 @@ cdef extern from "fraktal_sft.h":
 
         int64_t    GetWindowRight()
         void   SetWindowRight(int64_t w)
-
-        int64_t    GetImageWidth()
-        int64_t    GetImageHeight()
 
         double GetThreadsPerCore()
         void   SetThreadsPerCore(double t)
