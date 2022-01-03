@@ -1,9 +1,15 @@
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GLib', '2.0')
+gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk as gtk
+from gi.repository import Gdk as gdk
 from gi.repository import GObject as gobject
 from gi.repository import GLib as glib
+
+import cairo
+
+from PIL import Image
 
 class UI:
     render_update = None
@@ -47,14 +53,28 @@ class UI:
 
     def on_fractal_draw(self, area, ctx):
         # print("DRAW")
+        img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
+        ctx = gdk.cairo_create(self["TheImage"].get_window())
+        ctx.set_source_surface(img, 0, 0)
+        ctx.paint()
+
         pass
 
     def on_quit_button_clicked(self,x):
         gtk.main_quit()
 
     def draw_fractal(self):
+        # TODO this is not at all optimal. Need to fix order and
+        # transparency in kf2 library.
+        #im = Image.fromarray(self.kf.image_data, mode="RGBA")
+        #b, g, r, x = im.split()
+        #im = Image.merge("RGB", (r, g, b))
 
-        pass
+        #pixbuf = gdk.pixbuf_new_from_bytes(self.kf.image_data, gdk.COLORSPACE_RGB, False, 8, im.size[0], im.size[1], 4*im.size[0])
+        #self["TheImage"].draw_pixbuf(self.white_gc, pixbuf, 0, 0, im.width, im.height, -1, -1, gdk.RGB_DITHER_NORMAL, 0, 0)
+
+        self["TheImage"].queue_draw_area(0,0,self.kf.image_width, self.kf.image_height)
+
 
     def on_imgsize_changed(self,*x):
         self.update_image_size()

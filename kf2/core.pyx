@@ -47,6 +47,15 @@ cdef class Fraktal:
         return np.PyArray_SimpleNewFromData(2,[self.cfr.m_bmi.biHeight,self.cfr.m_bmi.biWidth], np.NPY_UINT32, self.cfr.m_lpBits).T
 
     @property
+    def image_bytes(self):
+        """
+        Return the image as a linear array of bytes.
+        """
+        if not self.cfr.m_bmi or self.cfr.m_bmi.biBitCount != 32:
+            return None
+        return np.PyArray_SimpleNewFromData(1,[4*self.cfr.m_bmi.biHeight*self.cfr.m_bmi.biWidth], np.NPY_UINT8, self.cfr.m_lpBits)
+
+    @property
     def opengl_major(self):
         return self.cfr.m_opengl_major
     @property
