@@ -1,8 +1,10 @@
 from cfraktal cimport CFraktalSFT, version
-from cfraktal cimport int32_t, int64_t, uint64_t, bool, string, Reference_Type, CDecNumber
+from cfraktal cimport uint32_t, int32_t, int64_t, uint64_t, bool, string, Reference_Type, CDecNumber
 from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2
+cimport numpy as np
 
 import_gmpy2()
+np.import_array()
 
 cdef int32_t UNEVALUATED = 0x80000000
 
@@ -17,6 +19,34 @@ cdef class Fraktal:
         self.cfr.Render(not threaded, resetOldGlitch)
 
     @property
+    def nX(self):
+        return self.cfr.GetImageWidth()
+
+    @property
+    def nY(self):
+        return self.cfr.GetImageHeight()
+
+    @property
+    def iter_data(self):
+        """
+        Return the iter counts as a numpy array.
+
+        TODO this ignores MSB.
+        """
+        return np.PyArray_SimpleNewFromData(2,[self.nY,self.nX], np.NPY_UINT32, self.cfr.m_nPixels_LSB).T
+
+    @property
+    def image_data(self):
+        """
+        Return the image as a numpy array.
+
+        TODO this returns RGB[A] as a single integer.
+        """
+        if not self.cfr.m_bmi or self.cfr.m_bmi.biBitCount != 32:
+            return None
+        return np.PyArray_SimpleNewFromData(2,[self.cfr.m_bmi.biHeight,self.cfr.m_bmi.biWidth], np.NPY_UINT32, self.cfr.m_lpBits).T
+
+    @property
     def opengl_major(self):
         return self.cfr.m_opengl_major
     @property
@@ -25,7 +55,16 @@ cdef class Fraktal:
 
     @property
     def render_running(self):
+        """Render thread has not been waited for"""
         return self.cfr.renderRunning()
+    @property
+    def render_done(self):
+        """Render thread has finished"""
+        return not self.cfr.GetIsRendering()
+    def render_join(self):
+        """Join the Render thread.
+        Only call if render_running is True and render_done is False!"""
+        self.cfr.renderJoin()
 
     @property
     def inhibit_colouring(self):
@@ -81,20 +120,18 @@ cdef class Fraktal:
         return self.cfr.ToZoom()
 
     def setImageSize(self, nx:int, ny:int):
+        """
+        Modifies the image.
+
+        WARNING this invalidates `iter_data`!
+        """
+        self.stop()
         self.cfr.SetImageSize(nx,ny)
 
     # void CalcStart(int x0, int x1, int y0, int y1)
     # HBITMAP GetBitmap()
     # HBITMAP ShrinkBitmap(HBITMAP bmSrc,int nNewWidth,int nNewHeight,int mode = 1)
     # void UpdateBitmap()
-
-    @property
-    def nX(self):
-        return self.cfr.GetWidth()
-
-    @property
-    def nY(self):
-        return self.cfr.GetHeight()
 
     def stop(self):
         self.cfr.Stop()
@@ -426,6 +463,15 @@ cdef class Fraktal:
     @auto_solve_glitches.setter
     def auto_solve_glitches(self, value):
         self.cfr.SetAutoSolveGlitches(value)
+
+    # TODO export them as a mapping, as soon as the library supports that
+    @property
+    def settings_str(self):
+        return self.cfr.ToText().decode("utf-8")
+    @settings_str.setter
+    def settings_str(self, data):
+        if not self.cfr.OpenString(data.encode("utf-8"), True):
+            raise RuntimeError("Not recognized")
 
     @property
     def guessing(self):

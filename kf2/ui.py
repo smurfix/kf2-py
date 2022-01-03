@@ -25,6 +25,7 @@ class UI:
 
     def on_test(self, *x):
         print("TEST")
+        breakpoint()
 
     def on_activate(self, *x):
         print("RUN",x)
@@ -40,20 +41,46 @@ class UI:
     def on_img_scroll(self, *x):
         print("SCROLL",x)
 
-    def on_img_ptrmove(self, *x):
-        print("MOVE",x)
+    def on_img_ptrmove(self, area, evt):
+        # print("MOVE",evt.x,evt.y)
+        pass
 
-    def on_fractal_draw(self, *x):
-        print("DRAW",x)
+    def on_fractal_draw(self, area, ctx):
+        # print("DRAW")
+        pass
 
     def on_quit_button_clicked(self,x):
         gtk.main_quit()
+
+    def draw_fractal(self):
+
+        pass
+
+    def on_imgsize_changed(self,*x):
+        self.update_image_size()
+
+    def update_image_size(self):
+        """update image size from on-screen window"""
+        # XXX test code, ideally should not do this
+        img = self["TheImage"]
+        r = img.get_allocation()
+        self.kf.setImageSize(r.width,r.height)
+        self.render()
 
     def render_idle(self):
         if not self.kf.render_running:
             self.render_update = None
             return False
-        return True
+
+        self.draw_fractal()
+
+        if not self.kf.render_done:
+            print("R")
+            return True
+        print("RD")
+        self.kf.render_join()
+        self.render_update = None
+        return False
 
     def render(self):
         self.kf.stop()
@@ -67,6 +94,7 @@ class UI:
 
     def run(self):
         self['main'].show_all()
+        self.update_image_size()
 
         gtk.main()
 

@@ -15,6 +15,8 @@ cdef extern from "<stdint.h>":
     ctypedef unsigned short uint32_t
     ctypedef long int64_t
     ctypedef short int32_t
+    ctypedef unsigned char uint8_t
+    ctypedef char int8_t
     cdef enum BOOL:
         FALSE
         TRUE
@@ -98,6 +100,12 @@ cdef extern from "fraktal_sft.h":
         unsigned char r
         unsigned char g
         unsigned char b
+
+    cdef struct BITMAPINFOHEADER:
+        int64_t biWidth;
+        int64_t biHeight;
+        uint32_t biBitCount;
+        uint64_t biSizeImage;
 
 cdef extern from "CFixedFloat.h":
     cpdef enum SmoothMethod "SmoothMethod":
@@ -387,6 +395,8 @@ cdef extern from "fraktal_sft.h":
         int m_opengl_major
         int m_opengl_minor
         bool renderRunning()
+        bool renderJoin()
+        bool GetIsRendering()
         bool m_bInhibitColouring
         bool m_bInteractive
         int nPos
@@ -412,6 +422,14 @@ cdef extern from "fraktal_sft.h":
         void UpdateBitmap()
         int GetImageWidth() # m_nX
         int GetImageHeight() # m_nY
+
+        uint32_t *m_nPixels_LSB
+        uint32_t *m_nPixels_MSB # TODO
+        int m_row # stride
+
+        uint8_t *m_lpBits
+        BITMAPINFOHEADER *m_bmi;
+
         void Stop()
         int CountFrames(int nProcent)
         void Zoom(double nZoomSize)
