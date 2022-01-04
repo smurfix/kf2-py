@@ -60,7 +60,6 @@ nobody thinks about the Color dialog.
 
 ## TODOs
 
-- test loading settings
 - test saving images
 - rewrite the main code as a module
 - implement target and viewport scaling

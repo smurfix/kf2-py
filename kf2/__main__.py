@@ -12,10 +12,10 @@ except ImportError:
 import click
 
 @click.command(context_settings={"help_option_names":['-h','-H','-?','--help']})
-@click.option("-o","--load-map",type=click.Path("r"), help="load map file (EXR or KFB")
+@click.option("-o","--load-map",type=click.Path("r"), help="load map file (EXR or KFB)")
 @click.option("-c","--load-palette",type=click.Path("r"), help="load palette file")
-@click.option("-l","--load-location",type=click.Path("r"), help="load location file")
-@click.option("-s","--load-settings",type=click.Path("r"), help="load settings file")
+@click.option("-l","--load-location",type=click.Path("r"), help="load location file (KFR)")
+@click.option("-s","--load-settings",type=click.Path("r"), help="load settings file (KFS)")
 @click.option("-x","--save-exr",type=click.Path("w"), help="save EXR")
 @click.option("-t","--save-tif",type=click.Path("w"), help="save TIFF")
 @click.option("-p","--save-png",type=click.Path("w"), help="save PNG")
@@ -24,7 +24,7 @@ import click
 @click.option("-m","--save-map",type=click.Path("w"), help="save KFB")
 @click.option("--save-kfr",type=click.Path("w"), help="save KFR")
 @click.option("-z","--zoom-out",type=int,help="zoom sequence")
-@click.option("-l","--log",type=str,help="logging verbosity")
+@click.option("-L","--log",type=str,help="logging verbosity")
 @click.option("-v","-V","--version",is_flag=True,help="show version")
 def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,save_png,save_jpg,jpg_quality,save_map,save_kfr,zoom_out,log,version):
 	if version:
@@ -39,7 +39,14 @@ def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,sav
 	if load_location:
 		kf.openFile(load_location)
 	if load_map:
-		kf.openMapB(load_map)
+		try:
+			kf.openMapB(load_map)
+		except RuntimeError:
+			try:
+				kf.openMapEXR(load_map)
+			except RuntimeError:
+				print(f"{load_map :r}: File format not recognized", file=sys.stderr)
+				sys.exit(1)
 	if load_palette:
 		kf.inhibit_colouring = True
 		kf.openFile(load_palette)
