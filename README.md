@@ -53,18 +53,23 @@ We're not there yet.
 Help with re-implementing all those dialogs, menus and whatnots is gladly
 accepted. Please co-ordinate via https://github.com/smurfix/kf2-py/discussions
 as we don't want three people to work on Newton-Raphson zooming while
-nobody thinks about a better Color dialog.
+nobody thinks about the Color dialog.
 
 ## TODOs
 
 - test loading settings
 - test saving images
+- rewrite the main code as a module
+- implement target and viewport scaling
+- implement saving non-EXR images in Python
 - implement zoom and pan
 - implement all those menus
+- implement load+save from the UI
 - implement all those dialogs
 - implement all those options
 - test OpenCL
 - test OpenGL
+- implement Mapping-based storage for settings and params
 
 # Future Work
 
