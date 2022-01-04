@@ -43,7 +43,12 @@ cdef extern from "floatexp.h":
     struct floatexpf
 
 cdef extern from "CDecNumber.h":
-    cdef cppclass decNumber
+    cdef cppclass _bkend:
+        mpfr_t data()
+
+    cdef cppclass decNumber:
+        _bkend backend()
+
     cdef cppclass CDecNumber:
         decNumber m_dec
 
@@ -169,6 +174,7 @@ cdef extern from "CFixedFloat.h":
 
     ctypedef decNumber FixedFloat
     cdef cppclass CFixedFloat:
+        FixedFloat m_f;
         CFixedFloat()
         CFixedFloat(CFixedFloat &a)
         CFixedFloat(const mpfr_t &a)

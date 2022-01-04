@@ -1,6 +1,6 @@
 from cfraktal cimport CFraktalSFT, version
 from cfraktal cimport uint32_t, int32_t, int64_t, uint64_t, bool, string, Reference_Type, CDecNumber
-from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2
+from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2, GMPy_MPFR_From_mpfr
 cimport numpy as np
 
 import pathlib
@@ -354,6 +354,24 @@ cdef class Fraktal:
     # mat2 GetTransformMatrix()
 
     # settings
+
+    cdef mpfr _center_re(self):
+        return GMPy_MPFR_From_mpfr(self.cfr.m_CenterRe.m_f.backend().data())
+
+    cdef mpfr _center_im(self):
+        return GMPy_MPFR_From_mpfr(self.cfr.m_CenterIm.m_f.backend().data())
+
+    cdef mpfr _zoom_radius(self):
+        return GMPy_MPFR_From_mpfr(self.cfr.m_ZoomRadius.m_f.backend().data())
+    @property
+    def center_re(self):
+        return self._center_re()
+    @property
+    def center_im(self):
+        return self._center_im()
+    @property
+    def zoom_radius(self):
+        return self._zoom_radius()
 
     @property
     def zoom_size(self):
