@@ -23,7 +23,10 @@ Prerequisites:
     git clone https://github.com/smurfix/kf2
     cd kf2
     sudo apt install $(igrep -v '#' REQUIREMENTS)
-    make embed -j9
+    make embed -j$(nproc)
+
+    sudo ln -s $(pwd)/libkf2-embed.so /usr/local/lib/
+    sudo ldconfig
 
     git clone https://github.com/smurfix/kf2-py.git python
     cd python
@@ -38,7 +41,7 @@ support separate object directories; sorry about that.
 
     cd kf2/python # if you're not there anyway
 
-    LD_LIBRARY_PATH=.. PYTHONPATH=. scripts/kf2
+    ./KF
 
 All options of the Windows KF2 are accepted. They probably won't do
 anything sensible yet, but that's a different problem. :-P
