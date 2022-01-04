@@ -51,9 +51,28 @@ GTK front-end, and programmability in Python.
 We're not there yet.
 
 Help with re-implementing all those dialogs, menus and whatnots is gladly
-accepted. Please co-ordinate via https://github.com/smurfix/kf2-py/discussions .
+accepted. Please co-ordinate via https://github.com/smurfix/kf2-py/discussions
+as we don't want three people to work on Newton-Raphson zooming while
+nobody thinks about a better Color dialog.
+
+## TODOs
+
+- test loading settings
+- test saving images
+- implement zoom and pan
+- implement all those menus
+- implement all those dialogs
+- implement all those options
+- test OpenCL
+- test OpenGL
 
 # Future Work
 
-The ability to write the Fractal equation in Python/gmpy2 would be a very nice addition.
+Fix panning: copy data instead of recalculating the world.
+
+Write an efficient framework for movies that do more than zoom in or out.
+
+Think about an async batch workflow (anyio).
+
+The ability to write the Fractal equation in Python (gmpy2 and/or numpy) would be a very nice addition.
 
