@@ -3,7 +3,11 @@ from cfraktal cimport uint32_t, int32_t, int64_t, uint64_t, bool, string, Refere
 from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2, GMPy_MPFR_From_mpfr
 cimport numpy as np
 
+import numpy
+import cairo
 import pathlib
+import PIL
+import PIL.Image
 
 import_gmpy2()
 np.import_array()
@@ -141,7 +145,7 @@ cdef class Fraktal:
         """
         Modifies the image.
 
-        WARNING this invalidates `iter_data`!
+        WARNING this invalidates `iter_data` et al.!
         """
         self.stop()
         self.cfr.SetImageSize(nx,ny)
@@ -253,6 +257,25 @@ cdef class Fraktal:
         self.cfr.SaveFile(fnfix(filename), True)
     def saveMap(self, filename:str):
         self.cfr.SaveMapB(fnfix(filename))
+
+    @property
+    def pilImage(self):
+        img = cairo.ImageSurface.create_for_data(self.image_bytes, cairo.FORMAT_RGB24, self.image_width, self.image_height)
+
+        cairoFormat = img.get_format()
+        if cairoFormat == cairo.FORMAT_ARGB32 or cairoFormat == cairo.FORMAT_RGB24:
+            # Cairo has ARGB. Convert this to RGB for PIL which supports only RGB or RGBA.
+            pilMode = 'RGB'
+            argbArray = self.image_bytes.reshape( -1, 4 )
+            rgbArray = argbArray[ :, 2::-1 ]
+            pilData = rgbArray.reshape( -1 )
+        else:
+            raise ValueError( 'Unsupported cairo format: %d' % cairoFormat )
+        pilImage = PIL.Image.frombuffer(pilMode,
+                ( img.get_width(), img.get_height() ), pilData, "raw",
+                pilMode, 0, 1 )
+        pilImage = pilImage.convert( 'RGB' )
+        return pilImage
 
     # int64_t GetMaxApproximation()
     # int64_t GetIterationOnPoint(int x, int y)
