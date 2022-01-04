@@ -53,7 +53,8 @@ def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,sav
 		kf.inhibit_colouring = False
 	only_kfr = bool(save_kfr) and not bool(save_exr or save_pg or save_map or save_png or save_tif)
 	if batch:
-		kf.setImageSize(*kf.target_dimensions[0:2])
+		x,y,s = kf.target_dimensions
+		kf.setImageSize(x*s,y*s)
 		save_args = dict(save_exr=save_exr, save_tif=save_tif, save_jpg=save_jpg,
 				save_png=save_png, save_map=save_map, save_kfr=save_kfr,
 				quality=jpg_quality)

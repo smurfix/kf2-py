@@ -1,7 +1,9 @@
 from cfraktal cimport CFraktalSFT, version
-from cfraktal cimport uint32_t, int32_t, int64_t, uint64_t, bool, string, Reference_Type, CDecNumber
+from cfraktal cimport uint8_t, uint32_t, int32_t, int64_t, uint64_t, bool, string, Reference_Type, CDecNumber
 from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2, GMPy_MPFR_From_mpfr
 cimport numpy as np
+cimport cython
+from cython cimport view
 
 import numpy
 import cairo
@@ -58,6 +60,17 @@ cdef class Fraktal:
         if not self.cfr.m_bmi or self.cfr.m_bmi.biBitCount != 32:
             return None
         return np.PyArray_SimpleNewFromData(2,[self.cfr.m_bmi.biHeight,self.cfr.m_bmi.biWidth], np.NPY_UINT32, self.cfr.m_lpBits).T
+
+    @property
+    def image_data_rgba(self):
+        """
+        Return the image as a numpy array with separate RGBA components.
+
+        TODO this returns RGB[A] as a single integer.
+        """
+        if not self.cfr.m_bmi or self.cfr.m_bmi.biBitCount != 32:
+            return None
+        return np.PyArray_SimpleNewFromData(3,[self.cfr.m_bmi.biHeight,self.cfr.m_bmi.biWidth,4], np.NPY_UINT8, self.cfr.m_lpBits)
 
     @property
     def image_bytes(self):
@@ -244,14 +257,29 @@ cdef class Fraktal:
     # bool SaveFile(string &szFile, bool overwrite)
     # double GetIterDiv()
     # void SetIterDiv(double nIterDiv)
-    def saveJpeg(self, filename:str, quality:int, width:int = 0, height:int = 0):
-        self.cfr.SaveJpg(fnfix(filename),quality,width,height)
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def saveEXR(self, filename:str):
-        self.cfr.SaveJpg(fnfix(filename),-3,0,0)
-    def saveTIFF(self, filename:str):
-        self.cfr.SaveJpg(fnfix(filename),-2,0,0)
-    def savePNG(self, filename:str):
-        self.cfr.SaveJpg(fnfix(filename),-1,0,0)
+        cdef uint8_t[:,:,::1] img = self.image_data_rgba
+        cdef np.ndarray[np.uint8_t, ndim=3, mode='c'] rgb = numpy.empty((self.nY,self.nX,3), numpy.ubyte, 'C')
+        cdef uint32_t x,y,xx,yy
+
+        if not self.cfr.GetHalfColour():
+            self.cfr.SetHalfColour(True)
+            self.cfr.ApplyColors()
+
+        yy=self.nY
+        xx=self.nX
+        for y in range(yy):
+            for x in range(xx):
+                rgb[y][x][0] = img[y][x][2]
+                rgb[y][x][1] = img[y][x][1]
+                rgb[y][x][2] = img[y][x][0]
+
+        cdef string cmt
+        cdef np.uint8_t* rgbd = &rgb[0,0,0]
+        self.cfr.SaveEXR(fnfix(filename),rgbd, self.nX,self.nY,cmt,1)
 
     def saveKFR(self, filename:str):
         self.cfr.SaveFile(fnfix(filename), True)

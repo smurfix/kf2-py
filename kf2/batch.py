@@ -1,6 +1,8 @@
 #
 # KF2 batch methods
 
+from PIL import Image
+
 def save_frame(kf, frame:int, only_kfr:bool, quality:int = 100,
         save_exr=None, save_tif=None, save_png=None, save_jpg=None, save_kfr=None, save_map=None):
 
@@ -8,18 +10,19 @@ def save_frame(kf, frame:int, only_kfr:bool, quality:int = 100,
         if '%' in fn:
             fn = fn % (frame,)
         return fn
-
+    x,y,s = kf.target_dimensions
+    img = kf.pilImage.resize((x,y), Image.LANCZOS)
     if not only_kfr:
         kf.inhibit_colouring = False
         kf.applyColors()
     if save_exr:
         kf.saveEXR(fixname(save_exr))
     if save_tif:
-        kf.pilImage.save(fixname(save_tif),format="tiff",compression="tiff_lzw")
+        img.save(fixname(save_tif),format="tiff",compression="tiff_lzw")
     if save_png:
-        kf.pilImage.save(fixname(save_png),format="png")
+        img.save(fixname(save_png),format="png")
     if save_jpg:
-        kf.pilImage.save(fixname(save_jpg),format="jpeg",quality=quality,optimize=True)
+        img.save(fixname(save_jpg),format="jpeg",quality=quality,optimize=True)
     if save_kfr:
         kf.saveKFR(fixname(save_kfr))
     if save_map:

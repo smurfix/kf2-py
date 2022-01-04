@@ -481,7 +481,14 @@ cdef extern from "fraktal_sft.h":
         bool SaveFile(string &szFile, bool overwrite)
         double GetIterDiv()
         void SetIterDiv(double nIterDiv)
-        int SaveJpg(string &szFile, int nQuality, int nWidth, int nHeight)
+        int SaveEXR (const string &filename
+                , const unsigned char *Data
+                , int nWidth
+                , int nHeight
+                , const string &comment
+                , unsigned int nParallel
+                )
+
         int64_t GetMaxApproximation()
         int64_t GetIterationOnPoint(int x, int y)
         double GetTransOnPoint(int x, int y)
