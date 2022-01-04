@@ -13,6 +13,8 @@ from PIL import Image
 
 class UI:
     render_update = None
+    skip_update = 2
+    draw_blocked = False
 
     def __init__(self, kf):
         self.kf = kf
@@ -25,6 +27,10 @@ class UI:
                 continue
             d[k] = getattr(self,k)
         self.widgets.connect_signals(d)
+
+        img = self["TheImage"]
+        signal_id = gobject.signal_lookup("draw",img)
+        self.draw_handler_id = gobject.signal_handler_find(img, gobject.SignalMatchType.ID, signal_id, 0, None, 0, 0)
 
     def __getitem__(self,name):
         return self.widgets.get_object(name)
@@ -44,8 +50,8 @@ class UI:
         # True if the window should not be deleted
         return False
 
-    def on_img_scroll(self, *x):
-        print("SCROLL",x)
+    #def on_img_scroll(self, *x):
+    #    print("SCROLL",x)
 
     def on_img_ptrmove(self, area, evt):
         # print("MOVE",evt.x,evt.y)
@@ -53,26 +59,21 @@ class UI:
 
     def on_fractal_draw(self, area, ctx):
         # print("DRAW")
+        if self.skip_update:
+            return True
         img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
-        ctx = gdk.cairo_create(self["TheImage"].get_window())
         ctx.set_source_surface(img, 0, 0)
         ctx.paint()
-
-        pass
 
     def on_quit_button_clicked(self,x):
         gtk.main_quit()
 
     def draw_fractal(self):
-        # TODO this is not at all optimal. Need to fix order and
-        # transparency in kf2 library.
-        #im = Image.fromarray(self.kf.image_data, mode="RGBA")
-        #b, g, r, x = im.split()
-        #im = Image.merge("RGB", (r, g, b))
-
-        #pixbuf = gdk.pixbuf_new_from_bytes(self.kf.image_data, gdk.COLORSPACE_RGB, False, 8, im.size[0], im.size[1], 4*im.size[0])
-        #self["TheImage"].draw_pixbuf(self.white_gc, pixbuf, 0, 0, im.width, im.height, -1, -1, gdk.RGB_DITHER_NORMAL, 0, 0)
-
+        img = self["TheImage"]
+        print("U")
+        if self.draw_blocked:
+            self.draw_blocked = False
+            gobject.signal_handler_unblock(img, self.draw_handler_id)
         self["TheImage"].queue_draw_area(0,0,self.kf.image_width, self.kf.image_height)
 
 
@@ -83,6 +84,10 @@ class UI:
         """update image size from on-screen window"""
         # XXX test code, ideally should not do this
         img = self["TheImage"]
+        if not self.draw_blocked:
+            self.draw_blocked = True
+            gobject.signal_handler_block(img, self.draw_handler_id)
+
         r = img.get_allocation()
         self.kf.setImageSize(r.width,r.height)
         self.render()
@@ -92,19 +97,22 @@ class UI:
             self.render_update = None
             return False
 
-        self.draw_fractal()
-
         if not self.kf.render_done:
-            print("R")
+            if self.skip_update:
+                self.skip_update -= 1
+            else:
+                self.draw_fractal()
             return True
-        print("RD")
+        self.skip_update = 0
         self.kf.render_join()
         self.render_update = None
+        self.draw_fractal()
         return False
 
     def render(self):
         self.kf.stop()
 
+        self.skip_update = 2
         self.kf.render(True)
         if self.render_update is None:
             self.render_update = glib.timeout_add(100, self.render_idle)
