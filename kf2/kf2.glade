@@ -173,7 +173,7 @@
             <property name="visible">True</property>
             <property name="app-paintable">True</property>
             <property name="can-focus">False</property>
-            <property name="events">GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_STRUCTURE_MASK | GDK_SCROLL_MASK</property>
+            <property name="events">GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_STRUCTURE_MASK</property>
             <signal name="draw" handler="on_fractal_draw" swapped="no"/>
             <signal name="motion-notify-event" handler="on_img_ptrmove" swapped="no"/>
             <signal name="scroll-event" handler="on_img_scroll" swapped="no"/>

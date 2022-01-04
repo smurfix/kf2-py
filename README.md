@@ -60,10 +60,8 @@ nobody thinks about the Color dialog.
 
 ## TODOs
 
-- test saving images
 - rewrite the main code as a module
 - implement target and viewport scaling
-- implement saving non-EXR images in Python
 - implement zoom and pan
 - implement all those menus
 - implement load+save from the UI
