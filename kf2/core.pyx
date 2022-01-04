@@ -3,10 +3,19 @@ from cfraktal cimport uint32_t, int32_t, int64_t, uint64_t, bool, string, Refere
 from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2
 cimport numpy as np
 
+import pathlib
+
 import_gmpy2()
 np.import_array()
 
 cdef int32_t UNEVALUATED = 0x80000000
+
+def fnfix(fn):
+    if isinstance(fn,pathlib.PurePath):
+        fn = str(fn)
+    if isinstance(fn,str):
+        fn = fn.encode("utf-8")
+    return fn
 
 cdef class Fraktal:
     cdef CFraktalSFT* cfr  # Hold a C++ instance which we're wrapping
@@ -211,19 +220,19 @@ cdef class Fraktal:
     # bool OpenString(string &szText, bool bNoLocation = FALSE)
 
     def openFile(self, filename:str, noLocation:bool=False):
-        if not self.cfr.OpenFile(filename, noLocation):
+        if not self.cfr.OpenFile(fnfix(filename), noLocation):
             raise RuntimeError("Could not open %s" % (repr(filename)))
 
     def openMapB(self, filename:str, reuseCenter:bool=False, zoomSize:float=1):
-        if not self.cfr.OpenMapB(filename, reuseCenter, zoomSize):
+        if not self.cfr.OpenMapB(fnfix(filename), reuseCenter, zoomSize):
             raise RuntimeError("Could not open %s" % (repr(filename)))
 
     def openMapEXR(self, filename:str):
-        if not self.cfr.OpenMapEXR(filename):
+        if not self.cfr.OpenMapEXR(fnfix(filename)):
             raise RuntimeError("Could not open %s" % (repr(filename)))
 
     def openMap(self, filename:str):
-        if not self.cfr.OpenMapB(filename, False,1):
+        if not self.cfr.OpenMapB(fnfix(filename), False,1):
             self.OpenMapEXR(filename)
 
     # bool OpenMapEXR(string &szFile)
@@ -232,18 +241,18 @@ cdef class Fraktal:
     # double GetIterDiv()
     # void SetIterDiv(double nIterDiv)
     def saveJpeg(self, filename:str, quality:int, width:int = 0, height:int = 0):
-        self.cfr.SaveJpg(filename,quality,width,height)
+        self.cfr.SaveJpg(fnfix(filename),quality,width,height)
     def saveEXR(self, filename:str):
-        self.cfr.SaveJpg(filename,-3,0,0)
+        self.cfr.SaveJpg(fnfix(filename),-3,0,0)
     def saveTIFF(self, filename:str):
-        self.cfr.SaveJpg(filename,-2,0,0)
+        self.cfr.SaveJpg(fnfix(filename),-2,0,0)
     def savePNG(self, filename:str):
-        self.cfr.SaveJpg(filename,-1,0,0)
+        self.cfr.SaveJpg(fnfix(filename),-1,0,0)
 
     def saveKFR(self, filename:str):
-        self.cfr.SaveFile(filename, True)
+        self.cfr.SaveFile(fnfix(filename), True)
     def saveMap(self, filename:str):
-        self.cfr.SaveMapB(filename)
+        self.cfr.SaveMapB(fnfix(filename))
 
     # int64_t GetMaxApproximation()
     # int64_t GetIterationOnPoint(int x, int y)
@@ -329,14 +338,14 @@ cdef class Fraktal:
         """
         Read a .kfr (or other saved settings) file
         """
-        if not self.cfr.OpenSettings(filename):
+        if not self.cfr.OpenSettings(fnfix(filename)):
             raise RuntimeError("Could not open %s" % (repr(filename)))
 
     def saveSettings(self, filename:str, overwrite: bool=True):
         """
         Save the current state to a .kfr file
         """
-        if not self.cfr.SaveSettings(filename, overwrite):
+        if not self.cfr.SaveSettings(fnfix(filename), overwrite):
             raise RuntimeError("Could not save %s" % (repr(filename)))
 
     # void SetTransformPolar(polar2 &P)
