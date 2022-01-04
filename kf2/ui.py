@@ -50,8 +50,8 @@ class UI:
         # True if the window should not be deleted
         return False
 
-    #def on_img_scroll(self, *x):
-    #    print("SCROLL",x)
+    def on_img_scroll(self, *x):
+        print("SCROLL",x)
 
     def on_img_ptrmove(self, area, evt):
         # print("MOVE",evt.x,evt.y)
@@ -70,7 +70,6 @@ class UI:
 
     def draw_fractal(self):
         img = self["TheImage"]
-        print("U")
         if self.draw_blocked:
             self.draw_blocked = False
             gobject.signal_handler_unblock(img, self.draw_handler_id)
