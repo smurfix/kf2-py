@@ -19,7 +19,7 @@ class UI:
     def __init__(self, kf):
         self.kf = kf
         self.widgets = gtk.Builder()
-        self.widgets.add_from_file("kf2/ui.glade")
+        self.widgets.add_from_file("kf2/kf2.glade")
 
         d = {}
         for k in dir(type(self)):
