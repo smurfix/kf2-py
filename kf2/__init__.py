@@ -1,4 +1,3 @@
-from .core import Fraktal
-Fractal=Fraktal # deprecate German spelling. Duh.
+from .impl import Fractal
 
 from .core import __version__

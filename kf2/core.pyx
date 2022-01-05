@@ -11,10 +11,17 @@ import pathlib
 import PIL
 import PIL.Image
 
+cdef extern from "mpfr.h":
+    void mpfr_free_cache2(int)
+    int MPFR_FREE_LOCAL_CACHE
+
 import_gmpy2()
 np.import_array()
 
 cdef int32_t UNEVALUATED = 0x80000000
+
+def flush_mp_cache():
+    mpfr_free_cache2(MPFR_FREE_LOCAL_CACHE)
 
 def fnfix(fn):
     if isinstance(fn,pathlib.PurePath):
@@ -29,9 +36,9 @@ cdef class Fraktal:
     def __cinit__(self):
         self.cfr = new CFraktalSFT()
 
-    def render(self, threaded=True, resetOldGlitch=True):
+    def renderFractal(self):
         """Render an image"""
-        self.cfr.Render(not threaded, resetOldGlitch)
+        self.cfr.RenderFractal()
 
     @property
     def nX(self):
@@ -87,19 +94,6 @@ cdef class Fraktal:
     @property
     def opengl_minor(self):
         return self.cfr.m_opengl_minor
-
-    @property
-    def render_running(self):
-        """Render thread has not been waited for"""
-        return self.cfr.renderRunning()
-    @property
-    def render_done(self):
-        """Render thread has finished"""
-        return not self.cfr.GetIsRendering()
-    def render_join(self):
-        """Join the Render thread.
-        Only call if render_running is True and render_done is False!"""
-        self.cfr.renderJoin()
 
     @property
     def inhibit_colouring(self):
@@ -167,9 +161,6 @@ cdef class Fraktal:
     # HBITMAP GetBitmap()
     # HBITMAP ShrinkBitmap(HBITMAP bmSrc,int nNewWidth,int nNewHeight,int mode = 1)
     # void UpdateBitmap()
-
-    def stop(self):
-        self.cfr.Stop()
 
     # int CountFrames(int nProcent)
     # void Zoom(double nZoomSize)
@@ -308,10 +299,41 @@ cdef class Fraktal:
     # int64_t GetMaxApproximation()
     # int64_t GetIterationOnPoint(int x, int y)
     # double GetTransOnPoint(int x, int y)
-    # bool AddReference(int x, int y, bool bEraseAll = FALSE, bool bNoGlitchDetection = FALSE, bool bResuming = FALSE)
+
+    # bool AddReference(int x, int y, bool bEraseAll = FALSE, bool bResuming = FALSE)
+    def addReference(self, x:int, y:int, eraseAll:bool=False, resuming:bool=False):
+        """Sets the reference r+i values to these coordinates"""
+        cdef bool ea = eraseAll
+        cdef bool re = resuming
+        cdef bool res;
+        res = self.cfr.AddReference(x,y, ea,re)
+        return res
+
+    @property
+    def add_references(self):
+        return self.cfr.m_bAddReference
+    @add_references.setter
+    def add_references(self, num:int):
+        self.cfr.m_bAddReference = num
+
+
     # bool HighestIteration(int &rx, int &ry)
     # void IgnoreIsolatedGlitches()
+
     # int FindCenterOfGlitch(int &rx, int &ry)
+    def findCenterOfGlitch(self):
+        """
+        Finds the "best" glitch center.
+        Returns a (x,y,size) tuple, or None if no glitch found.
+        """
+        cdef int x=0 # init silences cython warning
+        cdef int y=0
+        cdef int r
+        r = self.cfr.FindCenterOfGlitch(x,y)
+        if r == 0:
+            return None
+        return (x,y,r)
+
     # void FindCenterOfGlitch(int x0, int x1, int y0, int y1, TH_FIND_CENTER *p)
     # int GetColorIndex(int x, int y)
     # bool GetFlat()
@@ -544,6 +566,14 @@ cdef class Fraktal:
     def reuse_reference(self, value):
         self.cfr.SetReuseReference(value)
 
+    @property
+    def auto_glitch(self):
+        return self.cfr.m_bAutoGlitch
+    @auto_glitch.setter
+    def auto_glitch(self, value):
+        self.cfr.m_bAutoGlitch = value
+
+    # TODO export them as a mapping, as soon as the library supports that
     @property
     def auto_solve_glitches(self):
         return self.cfr.GetAutoSolveGlitches()

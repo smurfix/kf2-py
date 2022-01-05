@@ -119,9 +119,7 @@ class UI:
     def stop_render(self):
         self.kf.stop()
 
-    def run(self):
+    async def run(self):
         self['main'].show_all()
         self.update_image_size()
-
-        gtk.main()
 

@@ -400,8 +400,6 @@ cdef extern from "fraktal_sft.h":
 
         int m_opengl_major
         int m_opengl_minor
-        bool renderRunning()
-        bool renderJoin()
         bool GetIsRendering()
         bool m_bInhibitColouring
         bool m_bInteractive
@@ -421,13 +419,14 @@ cdef extern from "fraktal_sft.h":
 
         string ToZoom()
         void SetImageSize(int nx, int ny)
-        void Render(bool noThread, bool resetOldGlitch)
+        void RenderFractal()
         void CalcStart(int x0, int x1, int y0, int y1)
         # HBITMAP GetBitmap()
         # HBITMAP ShrinkBitmap(HBITMAP bmSrc,int nNewWidth,int nNewHeight,int mode = 1)
         void UpdateBitmap()
         int GetImageWidth() # m_nX
         int GetImageHeight() # m_nY
+        bool m_bStop # actually a std::atomic<bool> but that's irrelevant
 
         uint32_t *m_nPixels_LSB
         uint32_t *m_nPixels_MSB # TODO
@@ -492,10 +491,12 @@ cdef extern from "fraktal_sft.h":
         int64_t GetMaxApproximation()
         int64_t GetIterationOnPoint(int x, int y)
         double GetTransOnPoint(int x, int y)
-        bool AddReference(int x, int y, bool bEraseAll = FALSE, bool bNoGlitchDetection = FALSE, bool bResuming = FALSE)
+        int m_bAutoGlitch
+        int m_bAddReference
+        bool AddReference(int x, int y, bool bEraseAll, bool bResuming) nogil
         bool HighestIteration(int &rx, int &ry)
         void IgnoreIsolatedGlitches()
-        int FindCenterOfGlitch(int &rx, int &ry)
+        int FindCenterOfGlitch(int &rx, int &ry) nogil
         void FindCenterOfGlitch(int x0, int x1, int y0, int y1, TH_FIND_CENTER *p)
         int GetColorIndex(int x, int y)
         bool GetFlat()

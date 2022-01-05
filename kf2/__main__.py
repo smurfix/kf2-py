@@ -9,9 +9,10 @@ except ImportError:
 	sys.path[0:0] = (".",)
 	import kf2
 
-import click
+import asyncclick as click
+from trio_gtk import run
 
-@click.command(context_settings={"help_option_names":['-h','-H','-?','--help']})
+@click.command(name="kf2", context_settings={"help_option_names":['-h','-H','-?','--help']})
 @click.option("-o","--load-map",type=click.Path(exists=True, dir_okay=False), help="load map file (EXR or KFB)")
 @click.option("-c","--load-palette",type=click.Path(exists=True, dir_okay=False), help="load palette file")
 @click.option("-l","--load-location",type=click.Path(exists=True, dir_okay=False), help="load location file (KFR)")
@@ -26,7 +27,7 @@ import click
 @click.option("-z","--zoom-out",type=int,help="zoom sequence")
 @click.option("-L","--log",type=str,help="logging verbosity")
 @click.option("-v","-V","--version",is_flag=True,help="show version")
-def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,save_png,save_jpg,jpg_quality,save_map,save_kfr,zoom_out,log,version):
+async def _main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,save_png,save_jpg,jpg_quality,save_map,save_kfr,zoom_out,log,version):
 	if version:
 		print(kf2.__version__)
 		sys.exit(0)
@@ -60,19 +61,22 @@ def main(load_map,load_palette,load_location,load_settings,save_exr,save_tif,sav
 				quality=jpg_quality)
 		from kf2.batch import render_frame,save_frame
 		if load_map:
-			save_frame(0, only_kfr, **save_args)
+			kf.save_frame(0, only_kfr, **save_args)
 		else:
 			if zoom_out:
 				for frame in range(zoom_out):
-					render_frame(kf, frame, only_kfr, **save_args)
+					await kf.render_frame(frame, only_kfr, **save_args)
 					if kf.zoom < .001:
 						break
 			else:
-				render_frame(kf, 0, only_kfr, **save_args)
+				await kf.render_frame(0, only_kfr, **save_args)
 	else:
 		from kf2.ui import UI
 		ui=UI(kf)
-		ui.run()
+		await ui.run()
+
+def main():
+	run(_main.main)
 
 if __name__ == "__main__":
 	main()

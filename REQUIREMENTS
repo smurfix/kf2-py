@@ -1,5 +1,13 @@
 python3-gmpy2
 python3-cython
+python3-gi
+python3-pil
+gir1.2-gdkpixbuf-2.0
+gir1.2-glib-2.0
+gir1.2-gtk-3.0
+
+# python3-asyncclick  via pip
+# python3-trio-gtk    via pip
 
 libmpc-dev
 libglm-dev
