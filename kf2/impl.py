@@ -21,9 +21,8 @@ class Fractal(_Fractal):
     # - rendering but waiting for stop
     # - locked doing something else
 
-    def __init__(self):
-        super().__init__()
-        self.r_lock = Lock()
+#   def __init__(self):
+#       super().__init__()
 
     # This part does the actual rendering.
     # KF2 does this by signalling "WM_USER+199" and implementing the
@@ -60,25 +59,9 @@ class Fractal(_Fractal):
             self.applyColors()
         self.log("info", f"Stop render {name}" if self.stop_render else f"End render {name}")
 
-    def render_sync(self, stop_ok=True, ignore_stop=False, **kw):
-        """Sync render task.
-        """
-        name = kw.setdefault("name","render_sync")
-
-        try:
-            self._render(**kw)
-        except BaseException:
-            raise
-        else:
-            if self.stop_render:
-                if stop_ok:
-                    return
-                raise RenderStoppedError()
-        finally:
-            self.stop_render = False
 
     @asynccontextmanager
-    async def render_lock(self, kill=False, run=False, **kw):
+    async def render_lock(self, kill=False, run=False, stop_ok=False, **kw):
         """
         Lock out rendering.
         Use this context manager to ensure that the renderer is not running
@@ -93,31 +76,35 @@ class Fractal(_Fractal):
         name = kw.setdefault("name","render_lock")
 
         self.log("debug",f"lock {name}")
-        with self.r_lock:
-            if kill is None and self.r_done is not None:
-                raise RuntimeError("already rendering, {name}")
-            if kill:
-                self.stop_render = True
-            evt2 = trio.Event()
-            evt,self.r_done = self.r_done,evt2
+
+        if kill is None and self.r_done is not None:
+            raise RuntimeError("already rendering, {name}")
+        if kill:
+            self.stop_render = True
+        evt2 = trio.Event()
+        evt,self.r_done = self.r_done,evt2
+
         if evt is not None:
             await evt.wait()
         try:
             if self.r_working:
                 raise RuntimeError(f"Locked by {name} but WORKING is on")
+
+            self.stop_render = True
             yield self
 
             if run:
                 self.r_working = True
-                kw.setdefault("ignore_stop",True)
-                self.n.start_soon(trio.to_thread.run_sync,partial(self.render_sync, **kw))
-        finally:
-            with self.r_lock:
-                self.r_working = False
                 self.stop_render = False
-                if self.r_done is evt2:
-                    self.r_done = None
-                evt2.set()
+                await trio.to_thread.run_sync(partial(self._render, **kw))
+                if self.stop_render and not stop_ok:
+                    raise RenderStoppedError()
+        finally:
+            self.r_working = False
+            self.stop_render = False
+            if self.r_done is evt2:
+                self.r_done = None
+            evt2.set()
 
     @property
     def is_locked(self):
@@ -138,10 +125,8 @@ class Fractal(_Fractal):
         # TODO check whether the correct thread has the lock
 
     async def wait_render_done(self):
-        with self.r_lock:
-            r_done = self.r_done
-        if r_done is not None:
-            await r_done.wait()
+        if self.r_done is not None:
+            await self.r_done.wait()
 
     async def render(self, **kw):
         """
