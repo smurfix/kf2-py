@@ -165,13 +165,12 @@ class Fractal(_Fractal):
             if '%' in fn:
                 fn = fn % (frame,)
             return fn
-        import pdb;pdb.set_trace()
         x,y,s = self.target_dimensions
-        img = self.pilImage # .resize((x,y), Image.LANCZOS)
         if not only_kfr:
             self.log("info","colouring final image")
             self.inhibit_colouring = False
             self.applyColors()
+            img = self.pilImage # .resize((x,y), Image.LANCZOS)
         if save_exr:
             self.log("info", f"saving EXR {save_exr !r}")
             self.saveEXR(fixname(save_exr))
