@@ -8,13 +8,13 @@ from gi.repository import GObject as gobject
 from gi.repository import GLib as glib
 
 import cairo
+import trio
 
 from PIL import Image
 
 class UI:
-    render_update = None
+    render_updater = None
     skip_update = 2
-    draw_blocked = False
 
     def __init__(self, kf):
         self.kf = kf
@@ -40,39 +40,41 @@ class UI:
         breakpoint()
 
     def on_activate(self, *x):
-        print("RUN",x)
+        self.kf.log("debug","RUN",x)
 
     def on_main_destroy(self,window):
         # main window goes away
-        gtk.main_quit()
+        self.done.set()
 
     def on_main_delete(self,window,event):
         # True if the window should not be deleted
         return False
 
     def on_img_scroll(self, *x):
-        print("SCROLL",x)
+        self.kf.log("debug","SCROLL",x)
 
     def on_img_ptrmove(self, area, evt):
-        # print("MOVE",evt.x,evt.y)
+        # self.kf.log("debug","MOVE",evt.x,evt.y)
         pass
 
     def on_fractal_draw(self, area, ctx):
-        # print("DRAW")
         if self.skip_update:
+            self.kf.log("debug","NODRAW")
             return True
+        self.kf.log("debug","DRAW")
         img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
         ctx.set_source_surface(img, 0, 0)
+
+        r = self["TheImage"].get_allocation()
+        ctx.scale(self.kf.image_width/r.width, self.kf.image_height/r.height)
+
         ctx.paint()
 
     def on_quit_button_clicked(self,x):
-        gtk.main_quit()
+        self.done.set()
 
     def draw_fractal(self):
         img = self["TheImage"]
-        if self.draw_blocked:
-            self.draw_blocked = False
-            gobject.signal_handler_unblock(img, self.draw_handler_id)
         self["TheImage"].queue_draw_area(0,0,self.kf.image_width, self.kf.image_height)
 
 
@@ -80,46 +82,53 @@ class UI:
         self.update_image_size()
 
     def update_image_size(self):
+        self.kf.log("debug","UPD_SZ")
         """update image size from on-screen window"""
         # XXX test code, ideally should not do this
         img = self["TheImage"]
-        if not self.draw_blocked:
-            self.draw_blocked = True
-            gobject.signal_handler_block(img, self.draw_handler_id)
 
         r = img.get_allocation()
-        self.kf.setImageSize(r.width,r.height)
-        self.render()
+        self.kf.n.start_soon(self._resize,r.width,r.height)
+
+    async def _resize(self,w,h):
+        self.kf.log("debug","RESZ")
+        async with self.kf.render_lock(kill=True, run=True, name="UI resize"):
+            self.kf.log("debug","RESZ B")
+            self.kf.setImageSize(w,h)
+        self.start_render_updater()
+        self.kf.log("debug","RESZ D")
 
     def render_idle(self):
-        if not self.kf.render_running:
-            self.render_update = None
+        if not self.kf.is_rendering:
+            if self.kf.is_locked:
+                return True
+            self.kf.log("debug","IDLE E")
+            self.skip_update = 0
+            self.draw_fractal()
+            self.render_updater = None
             return False
 
-        if not self.kf.render_done:
-            if self.skip_update:
-                self.skip_update -= 1
-            else:
-                self.draw_fractal()
-            return True
-        self.skip_update = 0
-        self.kf.render_join()
-        self.render_update = None
-        self.draw_fractal()
-        return False
+        if self.skip_update:
+            self.kf.log("debug","IDLE S")
+            self.skip_update -= 1
+        else:
+            self.kf.log("debug","IDLE P")
+            self.draw_fractal()
+        return True
 
-    def render(self):
-        self.kf.stop()
-
+    def start_render(self):
+        self.kf.log("debug","SR")
         self.skip_update = 2
-        self.kf.render(True)
-        if self.render_update is None:
-            self.render_update = glib.timeout_add(100, self.render_idle)
+        self.kf.render_start(kill=True, ignore_stop=True)
+        self.start_render_updater()
 
-    def stop_render(self):
-        self.kf.stop()
+    def start_render_updater(self):
+        if self.render_updater is None:
+            self.render_updater = glib.timeout_add(100, self.render_idle)
 
     async def run(self):
+        self.done = trio.Event()
         self['main'].show_all()
         self.update_image_size()
+        await self.done.wait()
 

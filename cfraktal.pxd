@@ -403,6 +403,9 @@ cdef extern from "fraktal_sft.h":
         bool GetIsRendering()
         bool m_bInhibitColouring
         bool m_bInteractive
+
+        int m_bAutoGlitch
+
         int nPos
         void MandelCalc(Reference_Type reftype)
         void MandelCalcSIMD()
@@ -419,7 +422,7 @@ cdef extern from "fraktal_sft.h":
 
         string ToZoom()
         void SetImageSize(int nx, int ny)
-        void RenderFractal()
+        void RenderFractal() nogil
         void CalcStart(int x0, int x1, int y0, int y1)
         # HBITMAP GetBitmap()
         # HBITMAP ShrinkBitmap(HBITMAP bmSrc,int nNewWidth,int nNewHeight,int mode = 1)
@@ -492,8 +495,14 @@ cdef extern from "fraktal_sft.h":
         int64_t GetIterationOnPoint(int x, int y)
         double GetTransOnPoint(int x, int y)
         int m_bAutoGlitch
+        void ResetGlitches()
         int m_bAddReference
         bool AddReference(int x, int y, bool bEraseAll, bool bResuming) nogil
+        CFixedFloat m_rref
+        CFixedFloat m_iref
+        CFixedFloat m_rrefReuse
+        CFixedFloat m_irefReuse
+
         bool HighestIteration(int &rx, int &ry)
         void IgnoreIsolatedGlitches()
         int FindCenterOfGlitch(int &rx, int &ry) nogil
@@ -572,6 +581,8 @@ cdef extern from "fraktal_sft.h":
 
         bool OpenSettings(string &filename)
         bool SaveSettings(string &filename, bool overwrite)
+        string GetSettings()
+        bool SetSettings(string data)
 
         void SetTransformPolar(polar2 &P)
         polar2 GetTransformPolar()

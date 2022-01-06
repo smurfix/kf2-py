@@ -1,5 +1,6 @@
 from cfraktal cimport CFraktalSFT, version
 from cfraktal cimport uint8_t, uint32_t, int32_t, int64_t, uint64_t, bool, string, Reference_Type, CDecNumber
+from cfraktal cimport Differences_Analytic
 from gmpy2 cimport mpfr, MPFR_Check, MPFR, mpfr_t, import_gmpy2, GMPy_MPFR_From_mpfr
 cimport numpy as np
 cimport cython
@@ -10,6 +11,8 @@ import cairo
 import pathlib
 import PIL
 import PIL.Image
+import sys
+
 
 cdef extern from "mpfr.h":
     void mpfr_free_cache2(int)
@@ -23,6 +26,14 @@ cdef int32_t UNEVALUATED = 0x80000000
 def flush_mp_cache():
     mpfr_free_cache2(MPFR_FREE_LOCAL_CACHE)
 
+levels = {
+    "debug":0,
+    "status":1,
+    "info":2,
+    "warn":3,
+    "error":4,
+}
+
 def fnfix(fn):
     if isinstance(fn,pathlib.PurePath):
         fn = str(fn)
@@ -33,12 +44,50 @@ def fnfix(fn):
 cdef class Fraktal:
     cdef CFraktalSFT* cfr  # Hold a C++ instance which we're wrapping
 
+# Logging
+
+    cdef int _log_level
+    @property
+    def log_level(self):
+        return self._log_level
+    @log_level.setter
+    def log_level(self, value):
+        if isinstance(value,str):
+            value = levels[value]
+        self._log_level = value
+
+    @property
+    def log_levels(self):
+        return levels
+    def is_logging(self, level) -> bool:
+        """True if we're logging at this level"""
+        if isinstance(level,str):
+            level = levels[level]
+        return level >= self.log_level
+
+    def log(self, level, msg, *args):
+        """Log a message if the log level is set"""
+        if isinstance(level,str):
+            level = levels[level]
+        if level >= self.log_level:
+            if args:
+                msg = msg % args
+            print(msg, file=sys.stderr if level >= levels["status"] else sys.stdout)
+
     def __cinit__(self):
         self.cfr = new CFraktalSFT()
+        self._log_level = levels["warn"]
 
     def renderFractal(self):
         """Render an image"""
         self.cfr.RenderFractal()
+
+    @property
+    def stop_render(self):
+        return self.cfr.m_bStop
+    @stop_render.setter
+    def stop_render(self, value:bool):
+        self.cfr.m_bStop = value
 
     @property
     def nX(self):
@@ -137,6 +186,7 @@ cdef class Fraktal:
         Input is either multiprecision floats or strings.
         If the latter, Z is the zoom factor. radius := 2/z.
         """
+        self.not_rendering()
         if isinstance(x,str):
             x = mpfr(x)
             y = mpfr(y)
@@ -154,7 +204,7 @@ cdef class Fraktal:
 
         WARNING this invalidates `iter_data` et al.!
         """
-        self.stop()
+        self.not_rendering()
         self.cfr.SetImageSize(nx,ny)
 
     # void CalcStart(int x0, int x1, int y0, int y1)
@@ -230,6 +280,9 @@ cdef class Fraktal:
     def openFile(self, filename:str, noLocation:bool=False):
         if not self.cfr.OpenFile(fnfix(filename), noLocation):
             raise RuntimeError("Could not open %s" % (repr(filename)))
+        if self.cfr.GetDifferences() == Differences_Analytic and not self.derivatives:
+            self.log("warn","automatically enabling derivatives for analytic DE")
+            self.derivatives = True
 
     def openMapB(self, filename:str, reuseCenter:bool=False, zoomSize:float=1):
         if not self.cfr.OpenMapB(fnfix(filename), reuseCenter, zoomSize):
@@ -454,11 +507,39 @@ cdef class Fraktal:
         self.cfr.SetZoomSize(value)
 
     @property
+    def auto_glitch(self):
+        return self.cfr.m_bAutoGlitch
+    @auto_glitch.setter
+    def auto_glitch(self, value:int):
+        self.cfr.m_bAutoGlitch = value
+
+    @property
     def max_references(self):
         return self.cfr.GetMaxReferences()
     @max_references.setter
     def max_references(self, value):
         self.cfr.SetMaxReferences(value)
+
+    cdef mpfr _ref_r(self):
+        return GMPy_MPFR_From_mpfr(self.cfr.m_rref.m_f.backend().data())
+    cdef mpfr _ref_i(self):
+        return GMPy_MPFR_From_mpfr(self.cfr.m_irefReuse.m_f.backend().data())
+    cdef mpfr _ref_rr(self):
+        return GMPy_MPFR_From_mpfr(self.cfr.m_rref.m_f.backend().data())
+    cdef mpfr _ref_ir(self):
+        return GMPy_MPFR_From_mpfr(self.cfr.m_irefReuse.m_f.backend().data())
+    @property
+    def ref_r(self):
+        return self._ref_r()
+    @property
+    def ref_i(self):
+        return self._ref_i()
+    @property
+    def ref_r_reuse(self):
+        return self._ref_rr()
+    @property
+    def ref_i_reuse(self):
+        return self._ref_ir()
 
     @property
     def glitch_low_tolerance(self):
@@ -573,7 +654,8 @@ cdef class Fraktal:
     def auto_glitch(self, value):
         self.cfr.m_bAutoGlitch = value
 
-    # TODO export them as a mapping, as soon as the library supports that
+    def resetGlitches(self):
+        return self.cfr.ResetGlitches()
     @property
     def auto_solve_glitches(self):
         return self.cfr.GetAutoSolveGlitches()
@@ -584,9 +666,17 @@ cdef class Fraktal:
     # TODO export them as a mapping, as soon as the library supports that
     @property
     def settings_str(self):
-        return self.cfr.ToText().decode("utf-8")
+        return self.cfr.GetSettings().decode("utf-8")
     @settings_str.setter
     def settings_str(self, data):
+        if not self.cfr.SetSettings(data.encode("utf-8")):
+            raise RuntimeError("Not recognized")
+
+    @property
+    def params_str(self):
+        return self.cfr.ToText().decode("utf-8")
+    @params_str.setter
+    def params_str(self, data):
         if not self.cfr.OpenString(data.encode("utf-8"), True):
             raise RuntimeError("Not recognized")
 

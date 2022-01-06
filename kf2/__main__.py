@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import os
 import sys
+import trio
+from functools import partial
+
 os.environ["LD_LIBRARY_PATH"] = ".."
 
 try:
@@ -33,6 +36,8 @@ async def _main(load_map,load_palette,load_location,load_settings,save_exr,save_
 		sys.exit(0)
 
 	kf = kf2.Fractal()
+	if log:
+		kf.log_level = log
 
 	batch = save_exr or save_tif or save_png or save_jpg or save_map or save_kfr
 	if load_settings:
@@ -46,37 +51,40 @@ async def _main(load_map,load_palette,load_location,load_settings,save_exr,save_
 			try:
 				kf.openMapEXR(load_map)
 			except RuntimeError:
-				print(f"{load_map :r}: File format not recognized", file=sys.stderr)
+				print(f"{load_map !r}: File format not recognized", file=sys.stderr)
 				sys.exit(1)
 	if load_palette:
 		kf.inhibit_colouring = True
 		kf.openFile(load_palette)
 		kf.inhibit_colouring = False
 	only_kfr = bool(save_kfr) and not bool(save_exr or save_pg or save_map or save_png or save_tif)
-	if batch:
-		x,y,s = kf.target_dimensions
-		kf.setImageSize(x*s,y*s)
-		save_args = dict(save_exr=save_exr, save_tif=save_tif, save_jpg=save_jpg,
-				save_png=save_png, save_map=save_map, save_kfr=save_kfr,
-				quality=jpg_quality)
-		from kf2.batch import render_frame,save_frame
-		if load_map:
-			kf.save_frame(0, only_kfr, **save_args)
-		else:
-			if zoom_out:
-				for frame in range(zoom_out):
-					await kf.render_frame(frame, only_kfr, **save_args)
-					if kf.zoom < .001:
-						break
+	async with trio.open_nursery() as n:
+		kf.n = n
+		if batch:
+			x,y,s = kf.target_dimensions
+			kf.setImageSize(x*s,y*s)
+			save_args = dict(save_exr=save_exr, save_tif=save_tif, save_jpg=save_jpg,
+					save_png=save_png, save_map=save_map, save_kfr=save_kfr,
+					quality=jpg_quality)
+			from kf2.batch import render_frame,save_frame
+			if load_map:
+				kf.save_frame(0, only_kfr, **save_args)
 			else:
-				await kf.render_frame(0, only_kfr, **save_args)
-	else:
-		from kf2.ui import UI
-		ui=UI(kf)
-		await ui.run()
+				if zoom_out:
+					for frame in range(zoom_out):
+						await kf.render_frame(frame, only_kfr, **save_args)
+						if kf.zoom < .001:
+							break
+				else:
+					await kf.render_frame(0, only_kfr, **save_args)
+		else:
+			from kf2.ui import UI
+			ui=UI(kf)
+			await ui.run()
+		n.cancel_scope.cancel()
 
 def main():
-	run(_main.main)
+	run(partial(_main.main,standalone_mode=False))
 
 if __name__ == "__main__":
 	main()

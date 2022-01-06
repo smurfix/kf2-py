@@ -60,7 +60,8 @@ nobody thinks about the Color dialog.
 
 ## TODOs
 
-- rewrite the main code as a module
+- autoload/save default settings
+- fix window title
 - implement target and viewport scaling
 - implement zoom and pan
 - implement all those menus
