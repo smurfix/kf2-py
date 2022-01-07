@@ -88,8 +88,6 @@ cdef class Fraktal:
         return self.cfr.m_bStop
     @stop_render.setter
     def stop_render(self, value:bool):
-        if self.cfr.m_bStop != value:
-            print("StopRender="+str(value))
         self.cfr.m_bStop = value
 
     @property
