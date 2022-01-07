@@ -58,13 +58,20 @@ class UI:
         #if not t[0]:  # XXX unnamed? relevant?
         #    return
         if t.direction == gdk.ScrollDirection.UP:  # zoom in
-            import pdb;pdb.set_trace()
             self.kf.log("debug","SCROLL %r %r",btn.get_scroll_direction(),btn.get_coords())
-            z = self.kf.zoom_size
-
+            x,y = btn.get_coords()
+            
+            r = area.get_allocation()
+            self.kf.do_work(ApplyZoom(x*self.kf.nX/r.width, y*self.kf.nY/r.height, self.kf.zoom_size))
+            self.start_render_updater()
             pass
         elif t.direction == gdk.ScrollDirection.DOWN:  # zoom out
             self.kf.log("debug","SCROLL %r %r",btn.get_scroll_direction(),btn.get_coords())
+            x,y = btn.get_coords()
+            
+            r = area.get_allocation()
+            self.kf.do_work(ApplyZoom(x*self.kf.nX/r.width, y*self.kf.nY/r.height, 1/self.kf.zoom_size))
+            self.start_render_updater()
             pass
         else:
             self.kf.log("debug","SCROLL %r %r",btn.get_scroll_direction(),btn.get_coords())
@@ -81,8 +88,9 @@ class UI:
 
     def on_img_draw(self, area, ctx):
         if self.skip_update or not self.kf.nX or not self.kf.nY:
-            # self.kf.log("debug","NODRAW")
+            self.kf.log("debug","NODRAW %s",self.skip_update)
             return True
+        self.kf.log("debug","DRAW")
         img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
 
         r = area.get_allocation()
@@ -110,28 +118,30 @@ class UI:
         self.done.set()
 
     def draw_fractal(self):
+        self.kf.log("debug","Draw")
         img = self["TheImage"]
-        self["TheImage"].queue_draw_area(0,0,self.kf.image_width, self.kf.image_height)
+        img.queue_draw()
 
     def on_imgsize_changed(self,*x):
-        #self.resize_redisplay() # works
-
-        self.resize_fractal_to_viewport()
+        self.resize_redisplay() # works
+        #self.resize_fractal_to_viewport() # works somewhat
 
     def resize_viewport_to_fractal(self):
         """
         Set the viewport size to whatever the fractal is, possibly downscaled.
         """
+        self.kf.log("debug","Resize View>F")
         w,h,s = self.kf.target_dimensions
         img = self["TheImage"]
         img.set_size_request(w,h)
         self.kf.do_work(ApplySize(w,h,s))
-        self.kf.do_work(ApplyWork(self._minsize))
+        self.kf.do_work(ApplyWork(done=self._minsize))
 
     def resize_fractal_to_viewport(self):
         """
         Set the fractal size to whatever the viewport is, possibly upscaled.
         """
+        self.kf.log("debug","Resize F>View")
         img = self["TheImage"]
         r = img.get_allocation()
         w,h,s = self.kf.target_dimensions
@@ -142,9 +152,10 @@ class UI:
         """
         Recsale the fractal into the viewport, possibly distorting it.
         """
+        self.kf.log("debug","Resize")
+
         img = self["TheImage"]
-        r = img.get_allocation()
-        self["TheImage"].queue_draw_area(0,0,r.width, r.height)
+        img.queue_draw()
 
     async def _resize_task(self):
         while self.resized is not None:
@@ -173,17 +184,16 @@ class UI:
         self.kf.log("debug","RESZ X")
         self.resized = None
 
-    def render_idle(self):
-        if not self.kf.is_rendering:
-            if self.kf.is_locked:
-                self.kf.log("debug","IDLE L")
-                return True
-            self.kf.log("debug","IDLE E")
-            self.skip_update = 0
-            self.draw_fractal()
-            self.render_updater = None
-            return False
+    _show_render_lock = 0
 
+    def show_render(self):
+        if not self._show_render_lock:
+            self.skip_update = 0
+            self.render_updater = None
+            self.kf.log("debug","IDLE E")
+            self.draw_fractal()
+            return False
+        
         if self.skip_update:
             self.kf.log("debug","IDLE S")
             self.skip_update -= 1
@@ -192,10 +202,17 @@ class UI:
             self.draw_fractal()
         return True
 
+    def _dec_render_lock(self):
+        assert self._show_render_lock > 0
+        self._show_render_lock -= 1
+
     def start_render_updater(self):
+        self.kf.log("debug","Idle Q")
         self.skip_update = 2
         if self.render_updater is None:
-            self.render_updater = glib.timeout_add(100, self.render_idle)
+            self.render_updater = glib.timeout_add(100, self.show_render)
+        self._show_render_lock += 1
+        self.kf.do_work(ApplyWork("update_display", done=self._dec_render_lock))
 
     def _minsize(self):
         img = self["TheImage"]
@@ -206,6 +223,6 @@ class UI:
         self['main'].show_all()
         self.resize_viewport_to_fractal()
         self.start_render_updater()
-        self.kf.do_work(ApplyWork(self.draw_fractal))
+        #self.kf.do_work(ApplyWork("Startup", done=self.draw_fractal))
         await self.done.wait()
 

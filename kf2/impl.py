@@ -76,15 +76,30 @@ class ApplyNow(_Apply):
     """trigger the workqueue immediately"""
     pass
 
-@dataclass
 class ApplyWork(ApplyNow):
     """run a job after rendering"""
-    work:Callable
+    def __init__(self, name="?", work=None, trigger=None, done=None):
+        self._worker = work
+        self._trigger = trigger
+        self._done = done
+        self._name = name
+
+    def __repr__(self):
+        return f"ApplyWork:{self._name}"
+
+    def apply(self, kf):
+        if self._worker is not None:
+            self._worker
+
+    def trigger(self,ok):
+        if self._trigger is not None:
+            self._trigger()
 
     async def done(self,ok):
-         res = self.work()
-         if iscoroutine(res):
-             res = await res
+        if self._done is not None:
+            res = self._done()
+            if iscoroutine(res):
+                res = await res
 
 class ApplyRendered(ApplyNow):
     """wait for render to finish"""
@@ -123,11 +138,13 @@ class ApplyZoom(_Apply):
     reuseCenter:bool = False
     centerView:bool = False
 
-    def work(self,kf):
-        pass
-         
+    breaks=True
+    renders=True
 
-    
+    def apply(self,kf):
+        kf.zoom(self.x,self.y,self.size)
+        return True
+         
 
 class Fractal(_Fractal):
     r_done:trio.Event = None
@@ -164,6 +181,7 @@ class Fractal(_Fractal):
             self.resetGlitches()
 
         super().renderFractal()
+        super().fixIterLimit()
 
         if self.auto_solve_glitches and self.auto_glitch:
             for r in range(2,self.max_references):
@@ -178,6 +196,7 @@ class Fractal(_Fractal):
                 self.log("info", f"reference {r} at ({x},{y}) size {n-1}")
                 self.addReference(x,y)
                 super().renderFractal()
+                super().fixIterLimit()
         else:
             self.log("info", "No glitch fixing")
         if color:
@@ -362,7 +381,7 @@ class Fractal(_Fractal):
         """Enqueue this work item"""
         self.log("debug","WorkA %r", task)
         if not self.q_work:
-            self.q_work,rq = trio.open_memory_channel(10)
+            self.q_work,rq = trio.open_memory_channel(1000)
             self.n.start_soon(self._mgr,rq,self._work_task)
         self.q_work.send_nowait(task) 
 
@@ -379,7 +398,7 @@ class Fractal(_Fractal):
                 w.renders = w.apply(self) or w.renders
 
         if not self.q_render:
-            self.q_render,rq = trio.open_memory_channel(1000)
+            self.q_render,rq = trio.open_memory_channel(100)
             self.n.start_soon(self._mgr,rq,self._render_task)
         for w in work:
             await self.q_render.send(w) 

@@ -212,7 +212,11 @@ cdef class Fraktal:
         Change image size.
         """
         self.not_rendering()
-        self.cfr.SetImageSize(nx,ny)
+        cdef int x = nx
+        cdef int y = ny
+
+        with nogil:
+            self.cfr.SetImageSize(x,y)
 
     # void CalcStart(int x0, int x1, int y0, int y1)
     # HBITMAP GetBitmap()
@@ -249,7 +253,10 @@ cdef class Fraktal:
 
     # void FixIterLimit()
     def fixIterLimit(self):
-        self.cfr.FixIterLimit()
+        """updates the iter limit"""
+        with nogil:
+            self.cfr.FixIterLimit()
+
 
     # string GetRe()
     # string GetRe(int nXPos, int nYPos, int width, int height)
@@ -516,6 +523,16 @@ cdef class Fraktal:
     @zoom_size.setter
     def zoom_size(self, value):
         self.cfr.SetZoomSize(value)
+
+    # Zoom(int nXPos, int nYPos, double nZoomSize, BOOL bReuseCenter, bool center_view)
+    def zoom(self, xpos, ypos, factor, reuse_center=True, center_view=False):
+        cdef int xp = xpos
+        cdef int yp = ypos
+        cdef double f = factor
+        cdef bool rc = reuse_center
+        cdef bool cv = center_view
+        with nogil:
+            self.cfr.Zoom(xp,yp,f,rc,cv)
 
     @property
     def auto_glitch(self):

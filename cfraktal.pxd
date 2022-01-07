@@ -421,7 +421,7 @@ cdef extern from "fraktal_sft.h":
         CFixedFloat m_ZoomRadius
 
         string ToZoom()
-        void SetImageSize(int nx, int ny)
+        void SetImageSize(int nx, int ny) nogil
         void RenderFractal() nogil
         void CalcStart(int x0, int x1, int y0, int y1)
         # HBITMAP GetBitmap()
@@ -440,8 +440,8 @@ cdef extern from "fraktal_sft.h":
 
         void Stop()
         int CountFrames(int nProcent)
-        void Zoom(double nZoomSize)
-        void Zoom(int nXPos, int nYPos, double nZoomSize, int nWidth, int nHeight, bool bReuseCenter = FALSE, bool autoRender = true)
+        void Zoom(double nZoomSize) nogil
+        void Zoom(int nXPos, int nYPos, double nZoomSize, bool bReuseCenter, bool centerView) nogil
         bool Center(int &rx, int &ry, bool bSkipM = FALSE, bool bQuick = FALSE)
         double GetProgress(double *reference = nullptr, double *approximation = nullptr, double *good_guessed = nullptr, double *good = nullptr, double *queued = nullptr, double *bad = nullptr, double *bad_guessed = nullptr)
         void ResetTimers()
@@ -450,7 +450,7 @@ cdef extern from "fraktal_sft.h":
         void GetIterations(int64_t &nMin, int64_t &nMax, int *pnCalculated = NULL, int *pnType = NULL, bool bSkipMaxIter = FALSE)
         int64_t GetIterations()
         void SetIterations(int64_t nIterations)
-        void FixIterLimit()
+        void FixIterLimit() nogil
         string GetRe()
         string GetRe(int nXPos, int nYPos, int width, int height)
         string GetIm()
