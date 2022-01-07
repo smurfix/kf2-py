@@ -180,6 +180,7 @@ class Fractal(_Fractal):
         if reset_old_glitch:
             self.resetGlitches()
 
+        super().fixIterLimit()
         super().renderFractal()
         super().fixIterLimit()
 
