@@ -63,7 +63,12 @@ nobody thinks about the Color dialog.
 - autoload/save default settings
 - fix window title
 - implement target and viewport scaling
+- change window-resize modes between resizing the original and keeping the viewport
 - implement zoom and pan
+- when zooming in, start calculating at half block size
+  instead of going back to all-blocky
+- when zooming out, scale the old data matrices instead of recalculating
+  (doesn't work for zooming in because of jitter)
 - implement all those menus
 - implement load+save from the UI
 - implement all those dialogs
