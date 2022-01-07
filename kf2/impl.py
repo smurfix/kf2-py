@@ -29,10 +29,12 @@ class Fractal(_Fractal):
     # clean-up work in the main thread, which is beyond ugly IMHO,
     # esp. since it duplicates code (interactive vs. batch).
 
-    def _render(self, reset_old_glitch=True, name="_render", color=True):
+    def _render(self, reset_old_glitch=True, name="_render", color=True, **kw):
         """
         The actual rendering code. Takes care of de-glitching and display.
         """
+        if self.stop_render:
+            return
         self.log("info", f"Start render {name}")
         self.add_references = 0
         if reset_old_glitch:
@@ -60,8 +62,9 @@ class Fractal(_Fractal):
         self.log("info", f"Stop render {name}" if self.stop_render else f"End render {name}")
 
 
+    i=1
     @asynccontextmanager
-    async def render_lock(self, kill=False, run=False, stop_ok=False, **kw):
+    async def render_lock(self, kill=False, run=False, **kw):
         """
         Lock out rendering.
         Use this context manager to ensure that the renderer is not running
@@ -73,12 +76,13 @@ class Fractal(_Fractal):
                   if None, die.
             run: start a render job after unlocking.
         """
+        i=self.i; self.i+=1
         name = kw.setdefault("name","render_lock")
 
-        self.log("debug",f"lock {name}")
+        self.log("debug",f"lock {i} {name}")
 
         if kill is None and self.r_done is not None:
-            raise RuntimeError("already rendering, {name}")
+            raise RuntimeError(f"already locked, {name}")
         if kill:
             self.stop_render = True
         evt2 = trio.Event()
@@ -86,20 +90,22 @@ class Fractal(_Fractal):
 
         if evt is not None:
             await evt.wait()
+            self.log("debug",f"locked {i} {name}")
+        else:
+            self.log("debug",f"locked {i} {name} NOWAIT")
         try:
             if self.r_working:
                 raise RuntimeError(f"Locked by {name} but WORKING is on")
 
-            self.stop_render = True
+            self.stop_render = False
             yield self
 
             if run:
-                self.r_working = True
-                self.stop_render = False
-                await trio.to_thread.run_sync(partial(self._render, **kw))
-                if self.stop_render and not stop_ok:
-                    raise RenderStoppedError()
+                kw["name"] = name+" RUN"
+                kw["kill"] = True
+                self.n.start_soon(partial(self.render, **kw))
         finally:
+            self.log("debug",f"done {i} {name}")
             self.r_working = False
             self.stop_render = False
             if self.r_done is evt2:
@@ -128,7 +134,7 @@ class Fractal(_Fractal):
         if self.r_done is not None:
             await self.r_done.wait()
 
-    async def render(self, **kw):
+    async def render(self, stop_ok=False, **kw):
         """
         Parameters:
             name: a unique str that IDs the calling code, for tracing.
@@ -136,14 +142,25 @@ class Fractal(_Fractal):
             stop_ok: silently terminate this renderer if it is killed.
             color: run applyColors afterwards.
             kill: if False, silently return if a renderer is already running.
-                  if True (the default), kill the other renderer.
-                  if None, raises RuntimeError.
+                  if True, kill the other renderer.
+                  if None (the default), raises RuntimeError.
         """
         kw.setdefault("name","render")
-        kw.setdefault("kill",True)
-        kw.setdefault("stop_ok",False)
-        async with self.render_lock(run=True,**kw):
-            pass
+        kw.setdefault("kill",None)
+        self.log("debug",f"render locking {kw}")
+        async with self.render_lock(run=False, **kw):
+            await self.render_locked(**kw)
+
+    async def render_locked(self, **kw):
+        self.log("debug","render locked")
+        self.r_working = True
+        try:
+            await trio.to_thread.run_sync(partial(self._render, **kw))
+        finally:
+            self.r_working = False
+
+        if self.stop_render and not stop_ok:
+            raise RenderStoppedError()
 
     def render_start(self, **kw):
         """Start rendering in the background.
@@ -154,7 +171,7 @@ class Fractal(_Fractal):
         """
         kw.setdefault("name","render_start")
         kw.setdefault("stop_ok",True)
-        self.n.start_soon(partial(self._render,**kw))
+        self.n.start_soon(partial(self.render,**kw))
 
 
 

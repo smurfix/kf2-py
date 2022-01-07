@@ -15,6 +15,7 @@ from PIL import Image
 class UI:
     render_updater = None
     skip_update = 2
+    resized = None
 
     def __init__(self, kf):
         self.kf = kf
@@ -61,7 +62,7 @@ class UI:
         if self.skip_update:
             self.kf.log("debug","NODRAW")
             return True
-        self.kf.log("debug","DRAW")
+        #self.kf.log("debug","DRAW")
         img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
         ctx.set_source_surface(img, 0, 0)
 
@@ -82,21 +83,47 @@ class UI:
         self.update_image_size()
 
     def update_image_size(self):
-        self.kf.log("debug","UPD_SZ")
         """update image size from on-screen window"""
         # XXX test code, ideally should not do this
         img = self["TheImage"]
 
         r = img.get_allocation()
-        self.kf.n.start_soon(self._resize,r.width,r.height)
+        self.resize_image_to(r.width,r.height)
 
-    async def _resize(self,w,h):
-        self.kf.log("debug","RESZ")
-        async with self.kf.render_lock(kill=True, run=True, name="UI resize"):
-            self.kf.log("debug","RESZ B")
-            self.kf.setImageSize(w,h)
-        self.start_render_updater()
-        self.kf.log("debug","RESZ D")
+    def resize_image_to(self, w,h):
+        self.kf.log("debug","resize to %d %d",w,h)
+        r = self.resized
+        if r is None:
+            self.resized = r = [trio.Event(),0,0]
+            self.kf.n.start_soon(self._resize_task)
+        r[1:] = w,h
+        r[0].set()
+
+    async def _resize_task(self):
+        while self.resized is not None:
+            self.kf.log("debug","RESZ")
+            try:
+                while self.resized is not None:
+                    with trio.fail_after(0.2):
+                        await self.resized[0].wait()
+                    self.resized[0] = trio.Event()
+            except trio.TooSlowError:
+                pass
+            if self.resized is None:
+                self.kf.log("debug","RESZ Y")
+                return
+            e,w,h = self.resized
+            if self.kf.getImageSize() == (w,h):
+                break
+
+            self.kf.log("debug","RESZ A %r %r", self.kf.getImageSize(), (w,h))
+            async with self.kf.render_lock(kill=True, run=False, name="UI resize"):
+                self.kf.log("debug","RESZ B %d %d", w,h)
+                self.kf.setImageSize(*self.resized[1:3])
+                self.start_render_updater()
+                await self.kf.render_locked(stop_ok=True,name="Resizer")
+        self.kf.log("debug","RESZ X")
+        self.resized = None
 
     def render_idle(self):
         if not self.kf.is_rendering:
@@ -112,15 +139,9 @@ class UI:
             self.kf.log("debug","IDLE S")
             self.skip_update -= 1
         else:
-            self.kf.log("debug","IDLE P")
+            #self.kf.log("debug","IDLE P")
             self.draw_fractal()
         return True
-
-    def start_render(self):
-        self.kf.log("debug","SR")
-        self.skip_update = 2
-        self.kf.render_start(kill=True, ignore_stop=True)
-        self.start_render_updater()
 
     def start_render_updater(self):
         if self.render_updater is None:
@@ -130,5 +151,6 @@ class UI:
         self.done = trio.Event()
         self['main'].show_all()
         self.update_image_size()
+        self.start_render_updater()
         await self.done.wait()
 

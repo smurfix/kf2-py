@@ -80,13 +80,16 @@ cdef class Fraktal:
 
     def renderFractal(self):
         """Render an image"""
-        self.cfr.RenderFractal()
+        with nogil:
+            self.cfr.RenderFractal()
 
     @property
     def stop_render(self):
         return self.cfr.m_bStop
     @stop_render.setter
     def stop_render(self, value:bool):
+        if self.cfr.m_bStop != value:
+            print("StopRender="+str(value))
         self.cfr.m_bStop = value
 
     @property
@@ -198,11 +201,15 @@ cdef class Fraktal:
     def toZoom(self):
         return self.cfr.ToZoom()
 
+    def getImageSize(self):
+        """
+        Retrieve current image size.
+        """
+        return (self.nX,self.nY)
+
     def setImageSize(self, nx:int, ny:int):
         """
-        Modifies the image.
-
-        WARNING this invalidates `iter_data` et al.!
+        Change image size.
         """
         self.not_rendering()
         self.cfr.SetImageSize(nx,ny)
@@ -356,10 +363,13 @@ cdef class Fraktal:
     # bool AddReference(int x, int y, bool bEraseAll = FALSE, bool bResuming = FALSE)
     def addReference(self, x:int, y:int, eraseAll:bool=False, resuming:bool=False):
         """Sets the reference r+i values to these coordinates"""
+        cdef int xx = x
+        cdef int yy = y
         cdef bool ea = eraseAll
         cdef bool re = resuming
         cdef bool res;
-        res = self.cfr.AddReference(x,y, ea,re)
+        with nogil:
+            res = self.cfr.AddReference(xx,yy, ea,re)
         return res
 
     @property
@@ -382,7 +392,8 @@ cdef class Fraktal:
         cdef int x=0 # init silences cython warning
         cdef int y=0
         cdef int r
-        r = self.cfr.FindCenterOfGlitch(x,y)
+        with nogil:
+            r = self.cfr.FindCenterOfGlitch(x,y)
         if r == 0:
             return None
         return (x,y,r)
