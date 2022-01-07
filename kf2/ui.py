@@ -73,6 +73,12 @@ class UI:
         # self.kf.log("debug","MOVE",evt.x,evt.y)
         pass
 
+    def on_img_button(self, area, btn):
+        self.kf.log("debug","BTN %r",btn.button)
+
+    def on_img_button_release(self, area, btn):
+        self.kf.log("debug","!BTN %r",btn)
+
     def on_img_draw(self, area, ctx):
         if self.skip_update or not self.kf.nX or not self.kf.nY:
             # self.kf.log("debug","NODRAW")
