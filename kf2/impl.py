@@ -3,6 +3,9 @@ from threading import Lock
 from contextlib import asynccontextmanager
 from functools import partial
 import sys
+from dataclasses import dataclass
+from typing import Callable
+from inspect import iscoroutine
 
 from PIL import Image
 
@@ -11,9 +14,129 @@ import trio
 class RenderStoppedError(RuntimeError):
     pass
 
+##
+# The Fractal class implements a work queue, to sync between a render task,
+# the GUI, and any changes the latter wants to apply to the former.
+#
+# Theory of operation:
+# 
+# the GUI calls do_work(subclass-of-_Apply())
+#
+# Workers are accumulated until the's a (short) timeout, or an ApplyNow
+# subclass is queued.
+#
+# If any workers' `breaks` flag is set, the current render (if any) will be
+# halted; otherwise the system waits for it to end.
+#
+# With rendering blocked, each worker's `apply` method is called. If any
+# of these returns True, rendering will start.
+#
+# A Render process is started.
+#
+# Last, every worker's `done` method is called, asynchronously, with a flag
+# stating whether the render completed (True), didn't happen (None) or was
+# cancelled by subsequent work (False). In the latter case
+# `wait_render_done` may be used to delay until a 
+##
+
+class _Apply:
+    renders:bool = False
+    # Flag whether the worker requires rendering
+    # also set by `apply` method
+
+    breaks:bool = False
+    # Flag whether to interrupt an ongoing render
+
+    def apply(self,kf):
+        """
+        Called to do actual work.
+
+        Returns a flag whether to trigger a re-render.
+        """
+        return False
+
+    def trigger(self,ok):
+        """
+        Trigger further activities.
+
+        Called directly after rendering stops. `ok` states whether the render finished.
+        Obviously may not sleep (might cause deadlocks).
+        """
+        pass
+
+    async def done(self,ok):
+        """
+        Activity completed.
+
+        Called after rendering stops, in a separate task.
+        """
+        pass
+
+class ApplyNow(_Apply):
+    """trigger the workqueue immediately"""
+    pass
+
+@dataclass
+class ApplyWork(ApplyNow):
+    """run a job after rendering"""
+    work:Callable
+
+    async def done(self,ok):
+         res = self.work()
+         if iscoroutine(res):
+             res = await res
+
+class ApplyRendered(ApplyNow):
+    """wait for render to finish"""
+    ok = None
+
+    def __init__(self):
+        self.evt = trio.Event()
+
+    def trigger(self,ok):
+        self.evt.set()
+        self.ok = ok
+
+    async def wait(self):
+        await self.evt.wait()
+
+
+@dataclass
+class ApplySize(_Apply):
+    """change the image size"""
+    w:int
+    h:int
+    s:int
+
+    breaks = True
+    def apply(self, kf):
+        if kf.getImageSize() == (self.w*self.s, self.h*self.s):
+            return False
+        kf.target_dimensions = (self.w,self.h,self.s)
+        return True
+
+@dataclass
+class ApplyZoom(_Apply):
+    x: int
+    y: int
+    size: float
+    reuseCenter:bool = False
+    centerView:bool = False
+
+    def work(self,kf):
+        pass
+         
+
+    
+
 class Fractal(_Fractal):
     r_done:trio.Event = None
+    r_stopped:bool = None
+    r_trigger:trio.Event = None
     r_working:bool = False
+    q_work = None
+    q_render = None
+    q_finish = None
 
     # four states:
     # - idle (r_done is None)
@@ -130,11 +253,23 @@ class Fractal(_Fractal):
             raise RuntimeError("don't do this while rendering")
         # TODO check whether the correct thread has the lock
 
+    _waitdone = None
     async def wait_render_done(self):
-        if self.r_done is not None:
-            await self.r_done.wait()
+        """wait until a successful render"""
+        if self._waitdone is not None:
+            await self._waitdone.wait()
+            return
+        self._waitdone = trio.Event()
+        w = ApplyRendered()
+        while True:
+            self.do_work(w)
+            await w.wait()
+            if w.ok is not False:
+                self._waitdone.set()
+                self._waitdone = None
+                return w.ok
 
-    async def render(self, stop_ok=False, **kw):
+    async def render(self, **kw):
         """
         Parameters:
             name: a unique str that IDs the calling code, for tracing.
@@ -151,7 +286,7 @@ class Fractal(_Fractal):
         async with self.render_lock(run=False, **kw):
             await self.render_locked(**kw)
 
-    async def render_locked(self, **kw):
+    async def render_locked(self, stop_ok=False, **kw):
         self.log("debug","render locked")
         self.r_working = True
         try:
@@ -222,4 +357,80 @@ class Fractal(_Fractal):
             await self.render()
         self.save_frame(frame, only_kfr, **save_args)
 
+
+    def do_work(self, task):
+        """Enqueue this work item"""
+        self.log("debug","WorkA %r", task)
+        if not self.q_work:
+            self.q_work,rq = trio.open_memory_channel(10)
+            self.n.start_soon(self._mgr,rq,self._work_task)
+        self.q_work.send_nowait(task) 
+
+    async def _work_task(self, work):
+        breaks = False
+        for w in work:
+            self.log("debug","WorkB %r %s", w,w.breaks)
+            if w.breaks:
+                breaks = True
+                break
+
+        async with self.render_lock(kill=breaks, run=False, name="mgr"):
+            for w in work:
+                w.renders = w.apply(self) or w.renders
+
+        if not self.q_render:
+            self.q_render,rq = trio.open_memory_channel(1000)
+            self.n.start_soon(self._mgr,rq,self._render_task)
+        for w in work:
+            await self.q_render.send(w) 
+
+    async def _render_task(self, work):
+        render = False
+        for w in work:
+            self.log("debug","WorkC %r %s", w,w.renders)
+            render |= w.renders
+        if render:
+            try:
+                await self.render(stop_ok=False)
+            except RenderStoppedError:
+                done = False
+            else:
+                done = True
+        else:
+            done = None
+
+        for w in work:
+            self.log("debug","WorkD %r %s", w,done)
+            w.trigger(done)
+
+        if self.q_finish is None:
+            self.q_finish,rq= trio.open_memory_channel(10)
+            self.n.start_soon(self._done_task,rq)
+        await self.q_finish.send((done,work))
+
+    async def _done_task(self, rq):
+        async for done,work in rq:
+            for w in work:
+                if w.renders and done is False:
+                    self.log("debug","WorkE %r", w)
+                    await self.wait_render_done()
+                    done = True
+                self.log("debug","WorkF %r %s", w,done)
+                await w.done(done)
+
+    async def _mgr(self, queue, worker, init_run=False):
+        while True:
+            work = []
+            try:
+                while True:
+                    with trio.fail_after(0.2 if work or init_run else 99999):
+                        w = await queue.receive()
+                        work.append(w)
+                        if isinstance(w,ApplyNow):
+                            break
+            except trio.TooSlowError:
+                pass
+
+            await worker(work)
+            init_run = False
 
