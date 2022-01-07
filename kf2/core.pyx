@@ -11,6 +11,7 @@ import cairo
 import pathlib
 import PIL
 import PIL.Image
+import PIL.ImageOps
 import sys
 
 
@@ -359,6 +360,7 @@ cdef class Fraktal:
                 ( img.get_width(), img.get_height() ), pilData, "raw",
                 pilMode, 0, 1 )
         pilImage = pilImage.convert( 'RGB' )
+        pilImage = PIL.ImageOps.flip(pilImage)
         return pilImage
 
     # int64_t GetMaxApproximation()
