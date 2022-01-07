@@ -64,7 +64,9 @@ nobody thinks about the Color dialog.
 - fix window title
 - implement target and viewport scaling
 - change window-resize modes between resizing the original and keeping the viewport
-- implement zoom and pan
+- implement panning
+- implement instant zoom preview
+- implement animated zoom
 - when zooming in, start calculating at half block size
   instead of going back to all-blocky
 - when zooming out, scale the old data matrices instead of recalculating
