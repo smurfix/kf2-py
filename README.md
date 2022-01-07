@@ -11,7 +11,29 @@ this in production. We'll get there.
 
 # Building
 
-Prerequisites:
+Get, build and install the embedded library:
+
+    git clone https://github.com/smurfix/kf2
+    cd kf2
+    sudo apt install $(igrep -v '#' REQUIREMENTS)
+    make OPENCL=0 embed -j$(nproc)
+
+    sudo ln -s $(pwd)/libkf2-embed.so /usr/local/lib/
+    sudo ldconfig
+    cd ..
+
+    git clone https://github.com/smurfix/kf2-py.git
+    cd kf2-py
+    sudo apt install $(igrep -v '#' REQUIREMENTS)
+    make
+
+You can build the regular KF2 `.exe` along with the embedded library. Just
+run "make clean" in between. KF2's Makefile is hand-written and doesn't
+support separate object directories; sorry about that.
+
+## OpenCL?
+
+You need this for building with OpenCL (which is otherwise untested):
 
     sudo apt install git build-essential devscripts
     git clone https://github.com/smurfix/clew.git
@@ -20,31 +42,14 @@ Prerequisites:
     cd ..
     sudo dpkg -i libclew-dev_*.deb
 
-    git clone https://github.com/smurfix/kf2
-    cd kf2
-    sudo apt install $(igrep -v '#' REQUIREMENTS)
-    make embed -j$(nproc)
-
-    sudo ln -s $(pwd)/libkf2-embed.so /usr/local/lib/
-    sudo ldconfig
-
-    git clone https://github.com/smurfix/kf2-py.git python
-    cd python
-    sudo apt install $(igrep -v '#' REQUIREMENTS)
-    make
-
-You can build the regular KF2 `.exe` along with the embedded library. Just
-run "make clean" in between. KF2's Makefile is hand-written and doesn't
-support separate object directories; sorry about that.
-
 # Running
 
-    cd kf2/python # if you're not there anyway
+    cd kf2-py  # if you're not there anyway
 
     ./KF
 
-All options of the Windows KF2 are accepted. They probably won't do
-anything sensible yet, but that's a different problem. :-P
+All options of the Windows KF2 are accepted. They even might do
+something sensible.
 
 # Status
 
@@ -58,12 +63,22 @@ accepted. Please co-ordinate via https://github.com/smurfix/kf2-py/discussions
 as we don't want three people to work on Newton-Raphson zooming while
 nobody thinks about the Color dialog.
 
+## What's working
+
+- basic batch mode
+- loading of settings and parameters
+- generating and saving images and EXR files
+- basic zooming (no animation, no preview)
+- window resizing
+
 ## TODOs
 
 - autoload/save default settings
 - fix window title
+- display info below the image
 - implement target and viewport scaling
 - change window-resize modes between resizing the original and keeping the viewport
+- write the magic lines that the benchmarks script wants
 - implement panning
 - implement instant zoom preview
 - implement animated zoom
