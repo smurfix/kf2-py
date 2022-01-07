@@ -62,13 +62,18 @@ class UI:
         if self.skip_update:
             self.kf.log("debug","NODRAW")
             return True
-        #self.kf.log("debug","DRAW")
         img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
-        ctx.set_source_surface(img, 0, 0)
 
         r = self["TheImage"].get_allocation()
-        ctx.scale(self.kf.image_width/r.width, self.kf.image_height/r.height)
-
+        m = cairo.Matrix()
+        m.yy = -1.0
+        rr=area.get_allocated_size()[0]
+        m.y0 = r.height
+        m.translate(rr.x,-rr.y)
+        m.scale(r.width/self.kf.image_width, r.height/self.kf.image_height)
+        self.kf.log("debug","DRAW %r", m)
+        ctx.set_matrix(m)
+        ctx.set_source_surface(img, 0, 0)
         ctx.paint()
 
     def on_quit_button_clicked(self,x):
@@ -78,16 +83,19 @@ class UI:
         img = self["TheImage"]
         self["TheImage"].queue_draw_area(0,0,self.kf.image_width, self.kf.image_height)
 
-
     def on_imgsize_changed(self,*x):
         self.update_image_size()
 
-    def update_image_size(self):
+    def update_image_size(self, resize=None):
         """update image size from on-screen window"""
         # XXX test code, ideally should not do this
-        img = self["TheImage"]
 
+        img = self["TheImage"]
         r = img.get_allocation()
+        if not resize:
+            self["TheImage"].queue_draw_area(0,0,r.width, r.height)
+            return
+
         self.resize_image_to(r.width,r.height)
 
     def resize_image_to(self, w,h):
@@ -150,7 +158,7 @@ class UI:
     async def run(self):
         self.done = trio.Event()
         self['main'].show_all()
-        self.update_image_size()
+        self.update_image_size(True)
         self.start_render_updater()
         await self.done.wait()
 
