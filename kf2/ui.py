@@ -38,8 +38,8 @@ class UI:
     def __getitem__(self,name):
         return self.widgets.get_object(name)
 
-    def on_test(self, *x):
-        print("TEST")
+    def on_debug(self, *x):
+        print("DEBUG",x)
         breakpoint()
 
     def on_activate(self, *x):
