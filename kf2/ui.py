@@ -1,3 +1,4 @@
+import sys
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GLib', '2.0')
@@ -64,7 +65,6 @@ class UI:
             r = area.get_allocation()
             self.kf.do_work(ApplyZoom(x*self.kf.nX/r.width, y*self.kf.nY/r.height, self.kf.zoom_size))
             self.start_render_updater()
-            pass
         elif t.direction == gdk.ScrollDirection.DOWN:  # zoom out
             self.kf.log("debug","SCROLL %r %r",btn.get_scroll_direction(),btn.get_coords())
             x,y = btn.get_coords()
@@ -117,8 +117,13 @@ class UI:
         if self.skip_update or not self.kf.nX or not self.kf.nY:
             self.kf.log("debug","NODRAW %s",self.skip_update)
             return True
-        self.kf.log("debug","DRAW")
-        img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
+        # self.kf.log("debug","DRAW")
+        try:
+            img = cairo.ImageSurface.create_for_data(self.kf.image_bytes, cairo.FORMAT_RGB24, self.kf.image_width, self.kf.image_height)
+        except TypeError:
+            print("No image data?", file=sys.stderr)
+            breakpoint()
+            raise
 
         r = area.get_allocation()
         m = cairo.Matrix()
@@ -129,13 +134,14 @@ class UI:
         sx = r.width/self.kf.image_width
         sy = r.height/self.kf.image_height
 
-        if sx > sy:
+        if sx < sy:
             m.scale(sy,sy)
             m.x0 += (sx-sy)*self.kf.image_width/2
         else:
             m.scale(sx,sx)
-            if sx < sy:
+            if sx > sy:
                 m.y0 -= (sy-sx)*self.kf.image_height/2
+
         # self.kf.log("debug","DRAW %r", m)
         ctx.set_matrix(m)
         ctx.set_source_surface(img, 0, 0)
@@ -145,7 +151,7 @@ class UI:
         self.done.set()
 
     def draw_fractal(self):
-        self.kf.log("debug","Draw")
+        # self.kf.log("debug","Draw")
         img = self["TheImage"]
         img.queue_draw()
 
@@ -161,6 +167,7 @@ class UI:
         w,h,s = self.kf.target_dimensions
         img = self["TheImage"]
         img.set_size_request(w,h)
+
         self.kf.do_work(ApplySize(w,h,s))
         self.kf.do_work(ApplyWork(done=self._minsize))
 
@@ -225,7 +232,7 @@ class UI:
             self.kf.log("debug","IDLE S")
             self.skip_update -= 1
         else:
-            self.kf.log("debug","IDLE P")
+            # self.kf.log("debug","IDLE P")
             self.draw_fractal()
         return True
 
@@ -248,6 +255,9 @@ class UI:
     async def run(self):
         self.done = trio.Event()
         self['main'].show_all()
+        async with self.kf.render_lock():
+            self.kf.setImageSize(*self.kf.target_dimensions[0:2])
+        self.kf.do_work(ApplyWork(done=self._minsize))
         self.resize_viewport_to_fractal()
         self.start_render_updater()
         #self.kf.do_work(ApplyWork("Startup", done=self.draw_fractal))
