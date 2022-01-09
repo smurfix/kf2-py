@@ -72,9 +72,36 @@ class UI:
             r = area.get_allocation()
             self.kf.do_work(ApplyZoom(x*self.kf.nX/r.width, y*self.kf.nY/r.height, 1/self.kf.zoom_size))
             self.start_render_updater()
-            pass
         else:
             self.kf.log("debug","SCROLL %r %r",btn.get_scroll_direction(),btn.get_coords())
+
+    def on_menu_quit(self, item):
+        self.done.set()
+        pass
+    def on_menu_settings_save(self, item):
+        pass
+    def on_menu_settings_open(self, item):
+        pass
+    def on_menu_export_kfb(self, item):
+        pass
+    def on_menu_set_exr_channels(self, item):
+        pass
+    def on_menu_export_exr(self, item):
+        pass
+    def on_menu_export_tiff(self, item):
+        pass
+    def on_menu_export_jpeg(self, item):
+        pass
+    def on_menu_export_png(self, item):
+        pass
+    def on_menu_export_kfr(self, item):
+        pass
+    def on_menu_save(self, item):
+        pass
+    def on_menu_open_map(self, item):
+        pass
+    def on_menu_open(self, item):
+        pass
 
     def on_img_ptrmove(self, area, evt):
         # self.kf.log("debug","MOVE",evt.x,evt.y)
